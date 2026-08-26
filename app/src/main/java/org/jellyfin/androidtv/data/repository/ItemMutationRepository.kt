@@ -2,6 +2,7 @@ package org.jellyfin.androidtv.data.repository
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jellyfin.androidtv.channelflow.ChannelFlowConnectionStore
 import org.jellyfin.androidtv.data.model.DataRefreshService
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.playStateApi
@@ -18,15 +19,19 @@ interface ItemMutationRepository {
 class ItemMutationRepositoryImpl(
 	private val api: ApiClient,
 	private val dataRefreshService: DataRefreshService,
+	private val connectionStore: ChannelFlowConnectionStore,
 ) : ItemMutationRepository {
 	override suspend fun setFavorite(item: UUID, favorite: Boolean): UserItemDataDto {
-		val response by when {
-			favorite -> withContext(Dispatchers.IO) { api.userLibraryApi.markFavoriteItem(itemId = item) }
-			else -> withContext(Dispatchers.IO) { api.userLibraryApi.unmarkFavoriteItem(itemId = item) }
-		}
-
+		connectionStore.setFavorite(item, favorite)
 		dataRefreshService.lastFavoriteUpdate = Instant.now()
-		return response
+		return UserItemDataDto(
+			playbackPositionTicks = 0,
+			playCount = 0,
+			isFavorite = favorite,
+			played = false,
+			key = item.toString(),
+			itemId = item,
+		)
 	}
 
 	override suspend fun setPlayed(item: UUID, played: Boolean): UserItemDataDto {

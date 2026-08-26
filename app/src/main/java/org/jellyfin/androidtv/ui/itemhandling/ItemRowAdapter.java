@@ -26,8 +26,7 @@ import org.jellyfin.androidtv.data.querying.GetTrailersRequest;
 import org.jellyfin.androidtv.data.querying.GetUserViewsRequest;
 import org.jellyfin.androidtv.data.repository.UserViewsRepository;
 import org.jellyfin.androidtv.ui.GridButton;
-import org.jellyfin.androidtv.ui.browsing.BrowseGridFragment;
-import org.jellyfin.androidtv.ui.browsing.EnhancedBrowseFragment;
+import org.jellyfin.androidtv.ui.browsing.SortOption;
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter;
 import org.jellyfin.androidtv.ui.presentation.TextItemPresenter;
 import org.jellyfin.androidtv.util.Utils;
@@ -364,7 +363,7 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
         return totalItems;
     }
 
-    public void setSortBy(BrowseGridFragment.SortOption option) {
+    public void setSortBy(SortOption option) {
         if (!option.value.equals(mSortBy) || !option.order.equals(sortOrder)) {
             mSortBy = option.value;
             sortOrder = option.order;
@@ -701,7 +700,7 @@ public class ItemRowAdapter extends MutableObjectAdapter<Object> {
     private void retrieveAudioPlaylists(final GetItemsRequest query) {
         //Add specialized playlists first
         clear();
-        add(new GridButtonBaseRowItem(new GridButton(EnhancedBrowseFragment.FAVSONGS, context.getString(R.string.lbl_favorites), R.drawable.favorites)));
+        add(new GridButtonBaseRowItem(new GridButton(9, context.getString(R.string.lbl_favorites), R.drawable.favorites)));
         itemsLoaded = 1;
         ItemRowAdapterHelperKt.retrieveItems(this, api.getValue(), mQuery, 0, chunkSize);
     }

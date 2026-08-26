@@ -8,6 +8,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.repository.ItemRepository
 import org.jellyfin.androidtv.preference.UserPreferences
@@ -37,6 +38,7 @@ class SdkPlaybackHelper(
 	private val userPreferences: UserPreferences,
 	private val playbackLauncher: PlaybackLauncher,
 	private val playbackControllerContainer: PlaybackControllerContainer,
+	private val catalog: ChannelFlowGuideRepository,
 ) : PlaybackHelper {
 	companion object {
 		const val ITEM_QUERY_LIMIT = 150
@@ -202,32 +204,12 @@ class SdkPlaybackHelper(
 			}
 
 			BaseItemKind.PROGRAM -> {
-				val parentId = requireNotNull(mainItem.parentId)
-				val channel by api.userLibraryApi.getItem(parentId)
-				val channelWithProgramMetadata = channel.copy(
-					premiereDate = mainItem.premiereDate,
-					endDate = mainItem.endDate,
-					officialRating = mainItem.officialRating,
-					runTimeTicks = mainItem.runTimeTicks,
-				)
-
-				listOf(channelWithProgramMetadata)
+				val channelId = mainItem.channelId ?: mainItem.parentId
+				listOfNotNull(channelId?.let { catalog.getChannel(it) } ?: mainItem)
 			}
 
-			BaseItemKind.TV_CHANNEL -> {
-				val channel by api.liveTvApi.getChannel(mainItem.id)
-				val currentProgram = channel.currentProgram
-				if (currentProgram != null) {
-					val channelWithCurrentProgramMetadata = channel.copy(
-						premiereDate = currentProgram.premiereDate,
-						endDate = currentProgram.endDate,
-						officialRating = currentProgram.officialRating,
-						runTimeTicks = currentProgram.runTimeTicks,
-					)
-					listOf(channelWithCurrentProgramMetadata)
-				} else {
-					listOf(channel)
-				}
+			BaseItemKind.TV_CHANNEL, BaseItemKind.LIVE_TV_CHANNEL -> {
+				listOf(catalog.getChannel(mainItem.id) ?: mainItem)
 			}
 
 			else -> {
@@ -264,10 +246,12 @@ class SdkPlaybackHelper(
 				userPreferences[UserPreferences.resumeSubtractDuration].toIntOrNull()?.seconds
 					?: Duration.ZERO
 
-			val item = withContext(Dispatchers.IO) {
-				val response by api.userLibraryApi.getItem(itemId)
-				response
-			}
+			val item = catalog.getChannel(itemId)
+				?: catalog.getProgram(itemId)
+				?: withContext(Dispatchers.IO) {
+					val response by api.userLibraryApi.getItem(itemId)
+					response
+				}
 
 			val pos = item.userData?.playbackPositionTicks?.ticks?.minus(resumeSubtractDuration) ?: Duration.ZERO
 

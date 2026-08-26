@@ -7,7 +7,7 @@ enum class AppTheme(
 	override val nameRes: Int,
 ) : PreferenceEnum {
 	/**
-	 * The default dark theme
+	 * The default ChannelFlow theme (matches the server Web UI)
 	 */
 	DARK(R.string.pref_theme_dark),
 

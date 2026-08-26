@@ -1,6 +1,5 @@
 package org.jellyfin.androidtv.ui.browsing
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
@@ -11,42 +10,30 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import org.jellyfin.androidtv.auth.repository.SessionRepository
-import org.jellyfin.androidtv.auth.repository.UserRepository
-import org.jellyfin.androidtv.integration.LeanbackChannelWorker
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
 import org.jellyfin.androidtv.ui.background.AppBackground
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.ProvideLocalInteractionTracker
 import org.jellyfin.androidtv.ui.composable.compat.AppNavigationHost
+import org.jellyfin.androidtv.ui.livetv.LiveTvStartup
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
-import org.jellyfin.androidtv.ui.screensaver.InAppScreensaver
 import org.jellyfin.androidtv.ui.settings.compat.MainActivitySettings
-import org.jellyfin.androidtv.ui.startup.StartupActivity
 import org.jellyfin.androidtv.util.applyTheme
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import timber.log.Timber
 
 class MainActivity : FragmentActivity() {
 	private val navigationRepository by inject<NavigationRepository>()
-	private val sessionRepository by inject<SessionRepository>()
-	private val userRepository by inject<UserRepository>()
 	private val interactionTrackerViewModel by viewModel<InteractionTrackerViewModel>()
-	private val workManager by inject<WorkManager>()
+	private val liveTvStartup by inject<LiveTvStartup>()
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		applyTheme()
 
 		super.onCreate(savedInstanceState)
-
-		if (!validateAuthentication()) return
 
 		interactionTrackerViewModel.keepScreenOn.flowWithLifecycle(lifecycle, Lifecycle.State.RESUMED)
 			.onEach { keepScreenOn ->
@@ -71,9 +58,14 @@ class MainActivity : FragmentActivity() {
 					AppNavigationHost(
 						navigationRepository = navigationRepository,
 					)
-					InAppScreensaver()
 					MainActivitySettings()
 				}
+			}
+		}
+
+		if (savedInstanceState == null) {
+			lifecycleScope.launch {
+				liveTvStartup.playRandomChannel(this@MainActivity)
 			}
 		}
 	}
@@ -81,22 +73,9 @@ class MainActivity : FragmentActivity() {
 	override fun onResume() {
 		super.onResume()
 
-		if (!validateAuthentication()) return
-
 		applyTheme()
 
 		interactionTrackerViewModel.activityPaused = false
-	}
-
-	private fun validateAuthentication(): Boolean {
-		if (sessionRepository.currentSession.value == null || userRepository.currentUser.value == null) {
-			Timber.w("Activity ${this::class.qualifiedName} started without a session, bouncing to StartupActivity")
-			startActivity(Intent(this, StartupActivity::class.java))
-			finish()
-			return false
-		}
-
-		return true
 	}
 
 	override fun onPause() {
@@ -104,19 +83,6 @@ class MainActivity : FragmentActivity() {
 
 		interactionTrackerViewModel.activityPaused = true
 	}
-
-	override fun onStop() {
-		super.onStop()
-
-		workManager.enqueue(OneTimeWorkRequestBuilder<LeanbackChannelWorker>().build())
-
-		lifecycleScope.launch(Dispatchers.IO) {
-			Timber.i("MainActivity stopped")
-			sessionRepository.restoreSession(destroyOnly = true)
-		}
-	}
-
-	// Forward key events to fragments
 
 	private fun Fragment.onKeyEvent(keyCode: Int, event: KeyEvent?): Boolean {
 		var result = childFragmentManager.fragments.any { it.onKeyEvent(keyCode, event) }

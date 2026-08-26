@@ -15,7 +15,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.data.model.DataRefreshService
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
-import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.playback.PlaybackControllerContainer
@@ -24,7 +23,6 @@ import org.jellyfin.androidtv.util.PlaybackHelper
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
 import org.jellyfin.sdk.api.client.extensions.sessionApi
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.sockets.subscribe
 import org.jellyfin.sdk.api.sockets.subscribeGeneralCommand
 import org.jellyfin.sdk.api.sockets.subscribeGeneralCommands
@@ -227,13 +225,10 @@ class SocketHandler(
 		Timber.i("Launching $itemId")
 
 		when (itemKind) {
-			BaseItemKind.USER_VIEW,
-			BaseItemKind.COLLECTION_FOLDER -> {
-				val item by api.userLibraryApi.getItem(itemId = itemId)
-				itemLauncher.launchUserView(item)
-			}
-
-			else -> navigationRepository.navigate(Destinations.itemDetails(itemId))
+			BaseItemKind.TV_CHANNEL,
+			BaseItemKind.LIVE_TV_CHANNEL,
+			BaseItemKind.PROGRAM -> playbackHelper.retrieveAndPlay(itemId, false, context)
+			else -> Timber.i("Ignoring non-live-TV display content $itemId ($itemKind)")
 		}
 	}
 

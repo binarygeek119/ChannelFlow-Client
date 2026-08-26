@@ -9,6 +9,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.channelflow.ChannelFlowMediaStreamResolver
 import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.preference.UserSettingPreferences
 import org.jellyfin.androidtv.preference.constant.BufferLength
@@ -20,6 +21,7 @@ import org.jellyfin.androidtv.ui.playback.rewrite.RewriteMediaManager
 import org.jellyfin.androidtv.util.AndroidVersion
 import org.jellyfin.androidtv.util.profile.createDeviceProfile
 import org.jellyfin.playback.core.playbackManager
+import org.jellyfin.playback.core.plugin.playbackPlugin
 import org.jellyfin.playback.jellyfin.jellyfinPlugin
 import org.jellyfin.playback.media3.exoplayer.ExoPlayerOptions
 import org.jellyfin.playback.media3.exoplayer.exoPlayerPlugin
@@ -36,11 +38,11 @@ import kotlin.time.Duration.Companion.milliseconds
 import org.jellyfin.androidtv.ui.playback.PlaybackManager as LegacyPlaybackManager
 
 val playbackModule = module {
-	single { LegacyPlaybackManager(get()) }
+	single { LegacyPlaybackManager(get(), get()) }
 	single { VideoQueueManager() }
 	single<MediaManager> { RewriteMediaManager(get(), get()) }
 
-	single { PlaybackLauncher(get(), get(), get(), get()) }
+	single { PlaybackLauncher(get(), get(), get()) }
 
 	single<HttpDataSource.Factory> {
 		val okHttpFactory = get<OkHttpFactory>()
@@ -84,10 +86,14 @@ fun Scope.createPlaybackManager() = playbackManager(androidContext()) {
 	)
 	install(exoPlayerPlugin(get(), exoPlayerOptions))
 
+	install(playbackPlugin {
+		provide(ChannelFlowMediaStreamResolver(get()))
+	})
+
 	val mediaSessionOptions = MediaSessionOptions(
 		channelId = notificationChannelId,
 		notificationId = 1,
-		iconSmall = R.drawable.app_icon_foreground,
+		iconSmall = R.drawable.app_icon_foreground_monochrome,
 		openIntent = pendingIntent,
 	)
 	install(media3SessionPlugin(get(), mediaSessionOptions))

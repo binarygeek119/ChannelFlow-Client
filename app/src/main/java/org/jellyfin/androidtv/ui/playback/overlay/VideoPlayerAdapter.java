@@ -3,14 +3,11 @@ package org.jellyfin.androidtv.ui.playback.overlay;
 import androidx.annotation.NonNull;
 import androidx.leanback.media.PlayerAdapter;
 
-import org.jellyfin.androidtv.auth.repository.UserRepository;
 import org.jellyfin.androidtv.ui.playback.CustomPlaybackOverlayFragment;
 import org.jellyfin.androidtv.ui.playback.PlaybackController;
-import org.jellyfin.androidtv.util.Utils;
 import org.jellyfin.androidtv.util.apiclient.StreamHelper;
 import org.jellyfin.sdk.model.api.ChapterInfo;
 import org.jellyfin.sdk.model.api.MediaSourceInfo;
-import org.koin.java.KoinJavaComponent;
 
 import java.util.List;
 
@@ -145,23 +142,14 @@ public class VideoPlayerAdapter extends PlayerAdapter {
     }
 
     boolean canRecordLiveTv() {
-        org.jellyfin.sdk.model.api.BaseItemDto currentlyPlayingItem = getCurrentlyPlayingItem();
-        return currentlyPlayingItem.getCurrentProgram() != null
-                && Utils.canManageRecordings(KoinJavaComponent.<UserRepository>get(UserRepository.class).getCurrentUser().getValue());
+        return false;
     }
 
     public void toggleRecording() {
-        org.jellyfin.sdk.model.api.BaseItemDto currentlyPlayingItem = getCurrentlyPlayingItem();
-        getMasterOverlayFragment().toggleRecording(currentlyPlayingItem);
     }
 
     boolean isRecording() {
-        org.jellyfin.sdk.model.api.BaseItemDto currentProgram = getCurrentlyPlayingItem().getCurrentProgram();
-        if (currentProgram == null) {
-            return false;
-        } else {
-            return currentProgram.getTimerId() != null;
-        }
+        return false;
     }
 
     org.jellyfin.sdk.model.api.BaseItemDto getCurrentlyPlayingItem() {

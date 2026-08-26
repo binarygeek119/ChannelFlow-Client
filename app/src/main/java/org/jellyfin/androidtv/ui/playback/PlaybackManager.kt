@@ -5,6 +5,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
 import org.jellyfin.androidtv.data.compat.PlaybackException
 import org.jellyfin.androidtv.data.compat.StreamInfo
 import org.jellyfin.androidtv.data.compat.VideoOptions
@@ -13,6 +14,10 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.hlsSegmentApi
 import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
 import org.jellyfin.sdk.api.client.extensions.videosApi
+import org.jellyfin.sdk.model.api.MediaProtocol
+import org.jellyfin.sdk.model.api.MediaSourceInfo
+import org.jellyfin.sdk.model.api.MediaSourceType
+import org.jellyfin.sdk.model.api.MediaStreamProtocol
 import org.jellyfin.sdk.model.api.PlayMethod
 import org.jellyfin.sdk.model.api.PlaybackInfoDto
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
@@ -59,7 +64,8 @@ private fun createStreamInfo(
 }
 
 class PlaybackManager(
-	private val api: ApiClient
+	private val api: ApiClient,
+	private val catalog: ChannelFlowGuideRepository,
 ) {
 	fun getVideoStreamInfo(
 		lifecycleOwner: LifecycleOwner,
@@ -96,6 +102,39 @@ class PlaybackManager(
 		options: VideoOptions,
 		startTimeTicks: Long
 	) = runCatching {
+		val itemId = requireNotNull(options.itemId) { "Item id cannot be null" }
+		val streamUrl = catalog.getStreamUrl(itemId)
+		if (streamUrl != null) {
+			return@runCatching StreamInfo().apply {
+				this.itemId = itemId
+				playMethod = PlayMethod.DIRECT_PLAY
+				container = "ts"
+				mediaUrl = streamUrl
+				mediaSource = MediaSourceInfo(
+					protocol = MediaProtocol.HTTP,
+					id = itemId.toString(),
+					path = streamUrl,
+					type = MediaSourceType.DEFAULT,
+					container = "ts",
+					isRemote = true,
+					readAtNativeFramerate = false,
+					ignoreDts = true,
+					ignoreIndex = false,
+					genPtsInput = false,
+					supportsTranscoding = false,
+					supportsDirectStream = false,
+					supportsDirectPlay = true,
+					isInfiniteStream = true,
+					requiresOpening = false,
+					requiresClosing = false,
+					requiresLooping = false,
+					supportsProbing = false,
+					transcodingSubProtocol = MediaStreamProtocol.HTTP,
+					hasSegments = false,
+				)
+			}
+		}
+
 		val response = withContext(Dispatchers.IO) {
 			api.mediaInfoApi.getPostedPlaybackInfo(
 				itemId = requireNotNull(options.itemId) { "Item id cannot be null" },

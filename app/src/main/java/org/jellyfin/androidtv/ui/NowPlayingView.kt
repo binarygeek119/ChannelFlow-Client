@@ -41,8 +41,6 @@ import org.jellyfin.androidtv.ui.base.button.ButtonBase
 import org.jellyfin.androidtv.ui.composable.AsyncImage
 import org.jellyfin.androidtv.ui.composable.rememberPlayerProgress
 import org.jellyfin.androidtv.ui.composable.rememberQueueEntry
-import org.jellyfin.androidtv.ui.navigation.Destinations
-import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.util.apiclient.albumPrimaryImage
 import org.jellyfin.androidtv.util.apiclient.getUrl
 import org.jellyfin.androidtv.util.apiclient.itemImages
@@ -61,7 +59,6 @@ fun NowPlayingComposable(
 ) {
 	val api = koinInject<ApiClient>()
 	val playbackManager = koinInject<PlaybackManager>()
-	val navigationRepository = koinInject<NavigationRepository>()
 
 	val entry by rememberQueueEntry(playbackManager)
 	val item = entry?.run { baseItemFlow.collectAsState(baseItem) }?.value
@@ -76,7 +73,7 @@ fun NowPlayingComposable(
 	) { item ->
 		if (item != null) {
 			ButtonBase(
-				onClick = { navigationRepository.navigate(Destinations.nowPlaying) },
+				onClick = { },
 				modifier = Modifier
 					.widthIn(100.dp, 250.dp)
 			) {

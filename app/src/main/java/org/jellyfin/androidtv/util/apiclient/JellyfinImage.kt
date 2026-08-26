@@ -27,7 +27,12 @@ fun JellyfinImage.getUrl(
 	maxHeight: Int? = null,
 	fillWidth: Int? = null,
 	fillHeight: Int? = null,
-): String = when (source) {
+): String {
+	if (tag.startsWith("http://", ignoreCase = true) || tag.startsWith("https://", ignoreCase = true)) {
+		return tag
+	}
+
+	return when (source) {
 	JellyfinImageSource.USER -> api.imageApi.getUserImageUrl(
 		userId = item,
 		tag = tag,
@@ -43,6 +48,7 @@ fun JellyfinImage.getUrl(
 		fillWidth = fillWidth,
 		fillHeight = fillHeight,
 	)
+	}
 }
 
 enum class JellyfinImageSource {

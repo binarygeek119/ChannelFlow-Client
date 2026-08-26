@@ -7,16 +7,13 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.model.DataRefreshService
 import org.jellyfin.androidtv.data.repository.ItemMutationRepository
 import org.jellyfin.androidtv.ui.GuideChannelHeader
-import org.jellyfin.androidtv.ui.asTimerInfoDto
-import org.jellyfin.androidtv.ui.livetv.TvManager
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
-import org.jellyfin.sdk.model.api.BaseItemDto
 import org.koin.android.ext.android.inject
 import timber.log.Timber
 import java.time.Instant
@@ -45,14 +42,13 @@ fun CustomPlaybackOverlayFragment.toggleFavorite() {
 }
 
 fun CustomPlaybackOverlayFragment.refreshSelectedProgram() {
-	val api by inject<ApiClient>()
+	val catalog by inject<ChannelFlowGuideRepository>()
 
 	lifecycleScope.launch {
 		runCatching {
-			val item = withContext(Dispatchers.IO) {
-				api.userLibraryApi.getItem(mSelectedProgram.id).content
-			}
-			mSelectedProgram = item
+			catalog.getProgram(mSelectedProgram.id)
+		}.onSuccess { item ->
+			if (item != null) mSelectedProgram = item
 		}.onFailure { error ->
 			Timber.e(error, "Unable to get program details")
 		}
@@ -62,16 +58,23 @@ fun CustomPlaybackOverlayFragment.refreshSelectedProgram() {
 }
 
 fun CustomPlaybackOverlayFragment.playChannel(id: UUID) {
-	val api by inject<ApiClient>()
+	val catalog by inject<ChannelFlowGuideRepository>()
 	val playbackControllerContainer by inject<PlaybackControllerContainer>()
 
 	lifecycleScope.launch {
 		runCatching {
-			withContext(Dispatchers.IO) {
-				api.userLibraryApi.getItem(id).content
-			}
+			catalog.getChannel(id)
 		}.fold(
 			onSuccess = { channel ->
+				if (channel == null) {
+					Toast.makeText(
+						requireContext(),
+						getString(R.string.msg_video_playback_error),
+						Toast.LENGTH_LONG
+					).show()
+					closePlayer()
+					return@fold
+				}
 				playbackControllerContainer.playbackController?.setItems(listOf(channel))
 				playbackControllerContainer.playbackController?.play(0)
 			},
@@ -84,106 +87,6 @@ fun CustomPlaybackOverlayFragment.playChannel(id: UUID) {
 
 				closePlayer()
 			},
-		)
-	}
-}
-
-fun CustomPlaybackOverlayFragment.cancelTimer(id: String) {
-	val api by inject<ApiClient>()
-	val playbackControllerContainer by inject<PlaybackControllerContainer>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				api.liveTvApi.cancelTimer(id)
-			}
-		}.fold(
-			onSuccess = {
-				Toast.makeText(
-					requireContext(),
-					getString(R.string.msg_recording_cancelled),
-					Toast.LENGTH_LONG
-				).show()
-				playbackControllerContainer.playbackController?.updateTvProgramInfo()
-				TvManager.forceReload()
-			},
-			onFailure = {
-				Toast.makeText(
-					requireContext(),
-					getString(R.string.msg_unable_to_cancel),
-					Toast.LENGTH_LONG
-				).show()
-
-				closePlayer()
-			},
-		)
-	}
-}
-
-fun CustomPlaybackOverlayFragment.cancelSeriesTimer(id: String) {
-	val api by inject<ApiClient>()
-	val playbackControllerContainer by inject<PlaybackControllerContainer>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				api.liveTvApi.cancelSeriesTimer(id)
-			}
-		}.fold(
-			onSuccess = {
-				Toast.makeText(
-					requireContext(),
-					getString(R.string.msg_recording_cancelled),
-					Toast.LENGTH_LONG
-				).show()
-				playbackControllerContainer.playbackController?.updateTvProgramInfo()
-				TvManager.forceReload()
-			},
-			onFailure = {
-				Toast.makeText(
-					requireContext(),
-					getString(R.string.msg_unable_to_cancel),
-					Toast.LENGTH_LONG
-				).show()
-
-				closePlayer()
-			},
-		)
-	}
-}
-
-fun CustomPlaybackOverlayFragment.recordProgram(program: BaseItemDto, isSeries: Boolean) {
-	val api by inject<ApiClient>()
-	val playbackControllerContainer by inject<PlaybackControllerContainer>()
-
-	lifecycleScope.launch {
-		runCatching {
-			withContext(Dispatchers.IO) {
-				val defaultTimer by api.liveTvApi.getDefaultTimer(program.id.toString())
-
-				if (isSeries) {
-					api.liveTvApi.createSeriesTimer(defaultTimer)
-				} else {
-					api.liveTvApi.createTimer(defaultTimer.asTimerInfoDto())
-				}
-			}
-		}.fold(
-			onSuccess = {
-				Toast.makeText(
-					requireContext(),
-					getString(R.string.msg_set_to_record),
-					Toast.LENGTH_LONG
-				).show()
-				playbackControllerContainer.playbackController?.updateTvProgramInfo()
-				TvManager.forceReload()
-			},
-			onFailure = {
-				Toast.makeText(
-					requireContext(),
-					getString(R.string.msg_unable_to_create_recording),
-					Toast.LENGTH_LONG
-				).show()
-			}
 		)
 	}
 }

@@ -2,7 +2,6 @@ package org.jellyfin.androidtv.ui.playback;
 
 import static org.koin.java.KoinJavaComponent.inject;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Color;
 import android.media.AudioManager;
@@ -1168,51 +1167,6 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         return ndx - 1;
     }
 
-    public void toggleRecording(BaseItemDto item) {
-        final BaseItemDto program = item.getCurrentProgram();
-
-        if (program != null) {
-            if (program.getTimerId() != null) {
-                // cancel
-                if (program.getSeriesTimerId() != null) {
-                    new AlertDialog.Builder(requireContext())
-                            .setTitle(R.string.lbl_cancel_recording)
-                            .setMessage(R.string.msg_cancel_entire_series)
-                            .setPositiveButton(R.string.lbl_cancel_series, (dialog, which) -> cancelRecording(program, true))
-                            .setNegativeButton(R.string.just_one, (dialog, which) -> cancelRecording(program, false))
-                            .show();
-                } else {
-                    new AlertDialog.Builder(requireContext())
-                            .setTitle(R.string.lbl_cancel_recording)
-                            .setPositiveButton(R.string.lbl_yes, (dialog, which) -> cancelRecording(program, false))
-                            .setNegativeButton(R.string.lbl_no, null)
-                            .show();
-                }
-            } else {
-                if (Utils.isTrue(program.isSeries())) {
-                    new AlertDialog.Builder(requireContext())
-                            .setTitle(R.string.lbl_record_series)
-                            .setMessage(R.string.msg_record_entire_series)
-                            .setPositiveButton(R.string.lbl_record_series, (dialog, which) -> CustomPlaybackOverlayFragmentHelperKt.recordProgram(this, program, true))
-                            .setNegativeButton(R.string.lbl_just_this_once, (dialog, which) -> CustomPlaybackOverlayFragmentHelperKt.recordProgram(this, program, false))
-                            .show();
-                } else {
-                    CustomPlaybackOverlayFragmentHelperKt.recordProgram(this, program, false);
-                }
-            }
-        }
-    }
-
-    private void cancelRecording(BaseItemDto program, boolean series) {
-        if (program != null) {
-            if (series) {
-                CustomPlaybackOverlayFragmentHelperKt.cancelSeriesTimer(this, program.getSeriesTimerId());
-            } else {
-                CustomPlaybackOverlayFragmentHelperKt.cancelTimer(this, program.getTimerId());
-            }
-        }
-    }
-
     public void setCurrentTime(long time) {
         binding.skipOverlay.setCurrentPositionMs(time);
         if (leanbackOverlayFragment != null)
@@ -1240,7 +1194,6 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         if (current != null && getContext() != null) {
             leanbackOverlayFragment.mediaInfoChanged();
             leanbackOverlayFragment.onFullyInitialized();
-            leanbackOverlayFragment.recordingStateChanged();
             // set progress to match duration
             // set other information
             tvGuideBinding.guideCurrentTitle.setText(current.getName());
@@ -1312,22 +1265,16 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         if (navigationRepository.getValue().getCanGoBack()) {
             navigationRepository.getValue().goBack();
         } else {
-            navigationRepository.getValue().reset(Destinations.INSTANCE.getHome());
+            navigationRepository.getValue().reset(Destinations.INSTANCE.getLiveTvGuide());
         }
     }
 
     public void showNextUp(@NonNull UUID id) {
-        if (navigating) return;
-        navigating = true;
-
-        navigationRepository.getValue().navigate(Destinations.INSTANCE.nextUp(id), true);
+        closePlayer();
     }
 
     public void showStillWatching(@NonNull UUID id) {
-        if (navigating) return;
-        navigating = true;
-
-        navigationRepository.getValue().navigate(Destinations.INSTANCE.stillWatching(id), true);
+        closePlayer();
     }
 
     @Override

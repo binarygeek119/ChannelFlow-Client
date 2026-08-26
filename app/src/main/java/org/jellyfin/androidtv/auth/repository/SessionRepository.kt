@@ -13,9 +13,6 @@ import org.jellyfin.androidtv.auth.store.AuthenticationPreferences
 import org.jellyfin.androidtv.auth.store.AuthenticationStore
 import org.jellyfin.androidtv.preference.PreferencesRepository
 import org.jellyfin.androidtv.preference.TelemetryPreferences
-import org.jellyfin.androidtv.preference.constant.UserSelectBehavior.DISABLED
-import org.jellyfin.androidtv.preference.constant.UserSelectBehavior.LAST_USER
-import org.jellyfin.androidtv.preference.constant.UserSelectBehavior.SPECIFIC_USER
 import org.jellyfin.androidtv.util.sdk.forUser
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
@@ -68,21 +65,7 @@ class SessionRepositoryImpl(
 			Timber.i("Restoring session")
 
 			_state.value = SessionRepositoryState.RESTORING_SESSION
-
-			val alwaysAuthenticate = authenticationPreferences[AuthenticationPreferences.alwaysAuthenticate]
-			val autoLoginBehavior = authenticationPreferences[AuthenticationPreferences.autoLoginUserBehavior]
-
-			when {
-				alwaysAuthenticate -> destroyCurrentSession()
-				autoLoginBehavior == DISABLED -> destroyCurrentSession()
-				autoLoginBehavior == LAST_USER && !destroyOnly -> setCurrentSession(createLastUserSession())
-				autoLoginBehavior == SPECIFIC_USER && !destroyOnly -> {
-					val serverId = authenticationPreferences[AuthenticationPreferences.autoLoginServerId].toUUIDOrNull()
-					val userId = authenticationPreferences[AuthenticationPreferences.autoLoginUserId].toUUIDOrNull()
-					if (serverId != null && userId != null) setCurrentSession(createUserSession(serverId, userId))
-				}
-			}
-
+			if (!destroyOnly) setCurrentSession(createLastUserSession())
 			_state.value = SessionRepositoryState.READY
 		}
 	}

@@ -3,9 +3,7 @@ package org.jellyfin.androidtv.ui.settings.screen.playback
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -15,7 +13,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.rememberAsyncImagePainter
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.repository.ExternalAppRepository
-import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.LocalShapes
 import org.jellyfin.androidtv.ui.base.Text
@@ -24,7 +21,6 @@ import org.jellyfin.androidtv.ui.base.list.ListSection
 import org.jellyfin.androidtv.ui.navigation.LocalRouter
 import org.jellyfin.androidtv.ui.navigation.focus.focusKey
 import org.jellyfin.androidtv.ui.settings.Routes
-import org.jellyfin.androidtv.ui.settings.compat.rememberPreference
 import org.jellyfin.androidtv.ui.settings.composable.SettingsColumn
 import org.koin.compose.koinInject
 
@@ -33,7 +29,6 @@ fun SettingsPlaybackScreen() {
 	val context = LocalContext.current
 	val router = LocalRouter.current
 	val externalAppRepository = koinInject<ExternalAppRepository>()
-	val userPreferences = koinInject<UserPreferences>()
 
 	SettingsColumn {
 		item {
@@ -62,35 +57,6 @@ fun SettingsPlaybackScreen() {
 				},
 				onClick = { router.push(Routes.PLAYBACK_PLAYER) },
 				modifier = Modifier.focusKey(Routes.PLAYBACK_PLAYER)
-			)
-		}
-
-		item {
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_next_up), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_playback_next_up)) },
-				onClick = { router.push(Routes.PLAYBACK_NEXT_UP) },
-				modifier = Modifier.focusKey(Routes.PLAYBACK_NEXT_UP)
-			)
-		}
-
-		item {
-			var stillWatchingBehavior by rememberPreference(userPreferences, UserPreferences.stillWatchingBehavior)
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_zzz), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_playback_inactivity_prompt)) },
-				captionContent = { Text(stringResource(stillWatchingBehavior.nameRes)) },
-				onClick = { router.push(Routes.PLAYBACK_INACTIVITY_PROMPT) },
-				modifier = Modifier.focusKey(Routes.PLAYBACK_INACTIVITY_PROMPT)
-			)
-		}
-
-		item {
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_trailer), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_playback_prerolls)) },
-				onClick = { router.push(Routes.PLAYBACK_PREROLLS) },
-				modifier = Modifier.focusKey(Routes.PLAYBACK_PREROLLS)
 			)
 		}
 

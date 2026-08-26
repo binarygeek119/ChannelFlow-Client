@@ -5,9 +5,10 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,9 +48,10 @@ fun SplashScreen() {
 		Image(
 			painter = painterResource(R.drawable.app_logo),
 			contentDescription = stringResource(R.string.app_name),
+			contentScale = ContentScale.Fit,
 			modifier = Modifier
 				.width(400.dp)
-				.fillMaxHeight(),
+				.height(180.dp),
 		)
 	}
 }

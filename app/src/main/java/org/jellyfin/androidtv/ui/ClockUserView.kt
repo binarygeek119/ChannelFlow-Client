@@ -35,7 +35,7 @@ class ClockUserView @JvmOverloads constructor(
 		updateClockVisibility()
 
 		binding.home.setOnClickListener {
-			navigationRepository.reset(Destinations.home, clearHistory = true)
+			navigationRepository.reset(Destinations.liveTvGuide, clearHistory = true)
 		}
 	}
 

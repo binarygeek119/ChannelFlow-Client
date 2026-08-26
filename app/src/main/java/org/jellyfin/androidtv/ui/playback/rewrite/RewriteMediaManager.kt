@@ -10,7 +10,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.jellyfin.androidtv.integration.dream.visibleInScreensaver
+import org.jellyfin.playback.core.element.ElementKey
+import org.jellyfin.playback.core.element.requiredElement
 import org.jellyfin.androidtv.ui.playback.AudioEventListener
 import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.playback.PlaybackController
@@ -26,6 +27,9 @@ import org.jellyfin.playback.jellyfin.queue.createBaseItemQueueEntry
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.MediaType
+
+private val visibleInScreensaverKey = ElementKey<Boolean>("visibleInScreensaver")
+private var QueueEntry.visibleInScreensaver by requiredElement(visibleInScreensaverKey) { false }
 
 @Suppress("TooManyFunctions")
 class RewriteMediaManager(

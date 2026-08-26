@@ -10,6 +10,7 @@ import android.widget.TextView;
 import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.util.DateTimeExtensionsKt;
 import org.jellyfin.androidtv.util.TimeUtils;
+import org.jellyfin.androidtv.util.Utils;
 
 import java.time.LocalDateTime;
 
@@ -39,7 +40,7 @@ public class FriendlyDateButton extends FrameLayout {
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
 
         if (gainFocus) {
-            setBackgroundColor(getResources().getColor(androidx.leanback.R.color.lb_default_brand_color));
+            setBackgroundColor(Utils.getThemeColor(getContext(), android.R.attr.colorAccent));
         } else {
             setBackgroundColor(0);
         }

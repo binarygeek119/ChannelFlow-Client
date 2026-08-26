@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name_release" translatable="false" tools:ignore="UnusedResources">Jellyfin</string>
-    <string name="app_name_debug" translatable="false" tools:ignore="UnusedResources">Jellyfin Debug</string>
+    <string name="app_name_release" translatable="false" tools:ignore="UnusedResources">ChannelFlow TV</string>
+    <string name="app_name_debug" translatable="false" tools:ignore="UnusedResources">ChannelFlow TV Debug</string>
     <string name="video_error_unknown_error">Failed to load video</string>
     <string name="loading">Loading…</string>
     <string name="btn_cancel">Cancel</string>
@@ -84,6 +84,17 @@
     <string name="lbl_yes">Yes</string>
     <string name="lbl_enter_server_address">Enter server address</string>
     <string name="lbl_valid_server_address">Please enter the server address (IP or domain/machine name)</string>
+    <string name="lbl_your_quick_pin">Your quick pin</string>
+    <string name="lbl_quick_pin_help">Open ChannelFlow, go to Quick Pin, and enter this code. The pin lasts 10 minutes.</string>
+    <string name="lbl_quick_pin_waiting">Waiting for pin…</string>
+    <string name="lbl_quick_pin_waiting_server">Waiting for ChannelFlow to connect…</string>
+    <string name="lbl_retry">Retry</string>
+    <string name="msg_pin_server_unreachable">Could not reach the pin server. Check the network and try again.</string>
+    <string name="msg_quick_pin_expired">This pin expired. Try again for a new pin.</string>
+    <string name="pref_connection">Server</string>
+    <string name="pref_connection_description">Connect with a quick pin from ChannelFlow</string>
+    <string name="lbl_change_server">Change server</string>
+    <string name="lbl_change_server_help">Get a new pin and connect again</string>
     <string name="lbl_ok">Ok</string>
     <string name="lbl_born">"Born "</string>
     <string name="lbl_loading_elipses">Loading…</string>
@@ -264,7 +275,7 @@
     <string name="lbl_image_type">Image type</string>
     <string name="lbl_image_size">Image size</string>
     <string name="lbl_my_media">My media</string>
-    <string name="pref_theme_dark">Dark (Default)</string>
+    <string name="pref_theme_dark">ChannelFlow</string>
     <string name="pref_theme_emerald">Classic emerald</string>
     <string name="pref_about_title">About</string>
     <string name="pref_external_player">Use external player</string>

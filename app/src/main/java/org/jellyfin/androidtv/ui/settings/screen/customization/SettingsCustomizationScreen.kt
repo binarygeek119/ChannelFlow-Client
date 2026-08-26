@@ -4,11 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.preference.UserPreferences
-import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.form.Checkbox
 import org.jellyfin.androidtv.ui.base.list.ListButton
@@ -56,17 +54,6 @@ fun SettingsCustomizationScreen() {
 		}
 
 		item {
-			var watchedIndicatorBehavior by rememberPreference(userPreferences, UserPreferences.watchedIndicatorBehavior)
-
-			ListButton(
-				headingContent = { Text(stringResource(R.string.pref_watched_indicator)) },
-				captionContent = { Text(stringResource(watchedIndicatorBehavior.nameRes)) },
-				onClick = { router.push(Routes.CUSTOMIZATION_WATCHED_INDICATOR) },
-				modifier = Modifier.focusKey(Routes.CUSTOMIZATION_WATCHED_INDICATOR)
-			)
-		}
-
-		item {
 			var backdropBehavior by rememberPreference(userPreferences, UserPreferences.backdropBehavior)
 
 			ListButton(
@@ -89,24 +76,5 @@ fun SettingsCustomizationScreen() {
 			)
 		}
 
-		item { ListSection(headingContent = { Text(stringResource(R.string.pref_browsing)) }) }
-
-		item {
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_grid), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_libraries)) },
-				onClick = { router.push(Routes.LIBRARIES) },
-				modifier = Modifier.focusKey(Routes.LIBRARIES)
-			)
-		}
-
-		item {
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_house), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.home_prefs)) },
-				onClick = { router.push(Routes.HOME) },
-				modifier = Modifier.focusKey(Routes.HOME)
-			)
-		}
 	}
 }

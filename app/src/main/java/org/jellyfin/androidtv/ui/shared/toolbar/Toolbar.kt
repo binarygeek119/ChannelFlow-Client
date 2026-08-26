@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -28,7 +29,8 @@ fun Logo(modifier: Modifier = Modifier) {
 	Image(
 		painter = painterResource(R.drawable.app_logo),
 		contentDescription = stringResource(R.string.app_name),
-		modifier = modifier,
+		contentScale = ContentScale.Fit,
+		modifier = modifier.height(40.dp),
 	)
 }
 

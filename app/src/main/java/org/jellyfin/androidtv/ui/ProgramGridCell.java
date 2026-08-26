@@ -24,7 +24,7 @@ import org.jellyfin.sdk.model.api.BaseItemDto;
 
 import java.time.LocalDateTime;
 
-public class ProgramGridCell extends RelativeLayout implements RecordingIndicatorView {
+public class ProgramGridCell extends RelativeLayout {
 
     private LiveTvGuide mActivity;
     private TextView mProgramName;
@@ -80,7 +80,7 @@ public class ProgramGridCell extends RelativeLayout implements RecordingIndicato
         }
 
         if (liveTvPreferences.get(LiveTvPreferences.Companion.getShowRepeatIndicator()) && Utils.isTrue(program.isRepeat())) {
-            addBlockText(context.getString(R.string.lbl_repeat), 10, Color.GRAY, androidx.leanback.R.color.lb_default_brand_color);
+            addBlockText(context.getString(R.string.lbl_repeat), 10, Color.GRAY, R.color.channelflow_accent);
         }
 
         if (program.getOfficialRating() != null && !program.getOfficialRating().equals("0")) {
@@ -91,11 +91,7 @@ public class ProgramGridCell extends RelativeLayout implements RecordingIndicato
             addBlockText("HD", 10, Color.BLACK, R.drawable.block_text_bg);
         }
 
-        if (program.getSeriesTimerId() != null) {
-            mRecIndicator.setImageResource(program.getTimerId() != null ? R.drawable.ic_record_series_red : R.drawable.ic_record_series);
-        } else if (program.getTimerId() != null) {
-            mRecIndicator.setImageResource(R.drawable.ic_record_red);
-        }
+        mRecIndicator.setVisibility(View.GONE);
 
 
         if (keyListen) {
@@ -158,15 +154,4 @@ public class ProgramGridCell extends RelativeLayout implements RecordingIndicato
     public boolean isLast() { return isLast; }
     public void setFirst() { isFirst = true; }
     public boolean isFirst() { return isFirst; }
-
-    public void setRecTimer(String id) {
-        if (mProgram == null) return;
-        mProgram = LiveProgramDetailPopupHelperKt.copyWithTimerId(mProgram, id);
-        mRecIndicator.setImageResource(id != null ? (mProgram.getSeriesTimerId() != null ? R.drawable.ic_record_series_red : R.drawable.ic_record_red) : mProgram.getSeriesTimerId() != null ? R.drawable.ic_record_series : R.drawable.blank10x10);
-    }
-    public void setRecSeriesTimer(String id) {
-        if (mProgram == null) return;
-        mProgram = LiveProgramDetailPopupHelperKt.copyWithSeriesTimerId(mProgram, id);
-        mRecIndicator.setImageResource(id != null ? R.drawable.ic_record_series_red : R.drawable.blank10x10);
-    }
 }

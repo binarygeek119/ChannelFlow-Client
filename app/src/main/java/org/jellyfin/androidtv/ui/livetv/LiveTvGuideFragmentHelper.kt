@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.model.DataRefreshService
 import org.jellyfin.androidtv.data.repository.ItemMutationRepository
@@ -68,14 +69,13 @@ fun LiveTvGuideFragment.toggleFavorite() {
 }
 
 fun LiveTvGuideFragment.refreshSelectedProgram() {
-	val api by inject<ApiClient>()
+	val catalog by inject<ChannelFlowGuideRepository>()
 
 	lifecycleScope.launch {
 		runCatching {
-			val item = withContext(Dispatchers.IO) {
-				api.userLibraryApi.getItem(mSelectedProgram.id).content
-			}
-			mSelectedProgram = item
+			catalog.getProgram(mSelectedProgram.id)
+		}.onSuccess { item ->
+			if (item != null) mSelectedProgram = item
 		}.onFailure { error ->
 			Timber.e(error, "Unable to get program details")
 		}

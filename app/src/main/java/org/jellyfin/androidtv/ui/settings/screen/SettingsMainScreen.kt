@@ -2,6 +2,7 @@ package org.jellyfin.androidtv.ui.settings.screen
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import org.jellyfin.androidtv.R
@@ -29,10 +30,10 @@ fun SettingsMainScreen() {
 
 		item {
 			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_users), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_login)) },
-				onClick = { router.push(Routes.AUTHENTICATION) },
-				modifier = Modifier.focusKey(Routes.AUTHENTICATION),
+				leadingContent = { Icon(painterResource(R.drawable.ic_tv), contentDescription = null) },
+				headingContent = { Text(stringResource(R.string.pref_connection)) },
+				onClick = { router.push(Routes.CONNECTION) },
+				modifier = Modifier.focusKey(Routes.CONNECTION),
 			)
 		}
 
@@ -42,16 +43,6 @@ fun SettingsMainScreen() {
 				headingContent = { Text(stringResource(R.string.pref_customization)) },
 				onClick = { router.push(Routes.CUSTOMIZATION) },
 				modifier = Modifier.focusKey(Routes.CUSTOMIZATION),
-			)
-		}
-
-		// TODO: Temporarily added to root - should be accessed via customization screen instead
-		item {
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_photos), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_screensaver)) },
-				onClick = { router.push(Routes.CUSTOMIZATION_SCREENSAVER) },
-				modifier = Modifier.focusKey(Routes.CUSTOMIZATION_SCREENSAVER),
 			)
 		}
 
@@ -66,17 +57,31 @@ fun SettingsMainScreen() {
 
 		item {
 			ListButton(
+				leadingContent = { Icon(painterResource(R.drawable.ic_guide), contentDescription = null) },
+				headingContent = { Text(stringResource(R.string.pref_live_tv_cat)) },
+				onClick = { router.push(Routes.LIVETV_GUIDE_OPTIONS) },
+				modifier = Modifier.focusKey(Routes.LIVETV_GUIDE_OPTIONS),
+			)
+		}
+
+		item {
+			ListButton(
 				leadingContent = { Icon(painterResource(R.drawable.ic_error), contentDescription = null) },
 				headingContent = { Text(stringResource(R.string.pref_telemetry_category)) },
 				onClick = { router.push(Routes.TELEMETRY) },
 				modifier = Modifier.focusKey(Routes.TELEMETRY),
 			)
-
 		}
 
 		item {
 			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_jellyfin), contentDescription = null) },
+				leadingContent = {
+					Icon(
+						painter = painterResource(R.drawable.app_icon_foreground),
+						contentDescription = null,
+						tint = Color.Unspecified,
+					)
+				},
 				headingContent = { Text(stringResource(R.string.pref_about_title)) },
 				onClick = { router.push(Routes.ABOUT) },
 				modifier = Modifier.focusKey(Routes.ABOUT),

@@ -1,6 +1,5 @@
 package org.jellyfin.androidtv.di
 
-import android.content.Context
 import androidx.lifecycle.ProcessLifecycleOwner
 import coil3.ImageLoader
 import coil3.annotation.ExperimentalCoilApi
@@ -27,9 +26,12 @@ import org.jellyfin.androidtv.data.repository.NotificationsRepositoryImpl
 import org.jellyfin.androidtv.data.repository.UserViewsRepository
 import org.jellyfin.androidtv.data.repository.UserViewsRepositoryImpl
 import org.jellyfin.androidtv.data.service.BackgroundService
-import org.jellyfin.androidtv.integration.dream.DreamViewModel
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
+import org.jellyfin.androidtv.channelflow.ChannelFlowConnectionStore
+import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
+import org.jellyfin.androidtv.channelflow.ChannelFlowPairClient
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
+import org.jellyfin.androidtv.ui.livetv.LiveTvStartup
 import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.navigation.NavigationRepositoryImpl
@@ -40,20 +42,9 @@ import org.jellyfin.androidtv.ui.playback.external.MpvExternalPlayerApi
 import org.jellyfin.androidtv.ui.playback.external.MxExternalPlayerApi
 import org.jellyfin.androidtv.ui.playback.external.VimuExternalPlayerApi
 import org.jellyfin.androidtv.ui.playback.external.VlcExternalPlayerApi
-import org.jellyfin.androidtv.ui.playback.nextup.NextUpViewModel
 import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentRepository
 import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentRepositoryImpl
-import org.jellyfin.androidtv.ui.playback.stillwatching.StillWatchingViewModel
-import org.jellyfin.androidtv.ui.player.photo.PhotoPlayerViewModel
-import org.jellyfin.androidtv.ui.search.SearchFragmentDelegate
-import org.jellyfin.androidtv.ui.search.SearchRepository
-import org.jellyfin.androidtv.ui.search.SearchRepositoryImpl
-import org.jellyfin.androidtv.ui.search.SearchViewModel
 import org.jellyfin.androidtv.ui.settings.compat.SettingsViewModel
-import org.jellyfin.androidtv.ui.settings.screen.library.SettingsLibrariesScreenViewModel
-import org.jellyfin.androidtv.ui.startup.ServerAddViewModel
-import org.jellyfin.androidtv.ui.startup.StartupViewModel
-import org.jellyfin.androidtv.ui.startup.UserLoginViewModel
 import org.jellyfin.androidtv.util.AndroidVersion
 import org.jellyfin.androidtv.util.KeyProcessor
 import org.jellyfin.androidtv.util.MarkdownRenderer
@@ -87,7 +78,7 @@ val appModule = module {
 
 			// Add client info
 			val clientName = buildString {
-				append("Jellyfin for Android TV")
+				append("ChannelFlow TV")
 				if (BuildConfig.DEBUG) append(" (debug)")
 			}
 			clientInfo = ClientInfo(clientName, BuildConfig.VERSION_NAME)
@@ -141,13 +132,17 @@ val appModule = module {
 	single { PlaybackControllerContainer() }
 	single { InteractionTrackerViewModel(get(), get()) }
 
+	single { ChannelFlowConnectionStore(androidContext()) }
+	single { ChannelFlowPairClient() }
+	single { ChannelFlowGuideRepository(get(), get(), get(), get()) }
+
 	single<UserRepository> { UserRepositoryImpl() }
 	single<UserViewsRepository> { UserViewsRepositoryImpl(get()) }
 	single<NotificationsRepository> { NotificationsRepositoryImpl(get(), get()) }
-	single<ItemMutationRepository> { ItemMutationRepositoryImpl(get(), get()) }
+	single<ItemMutationRepository> { ItemMutationRepositoryImpl(get(), get(), get()) }
 	single<CustomMessageRepository> { CustomMessageRepositoryImpl() }
-	single<NavigationRepository> { NavigationRepositoryImpl(Destinations.home) }
-	single<SearchRepository> { SearchRepositoryImpl(get()) }
+	single<NavigationRepository> { NavigationRepositoryImpl(Destinations.liveTvGuide) }
+	single { LiveTvStartup(get(), get()) }
 	single<MediaSegmentRepository> { MediaSegmentRepositoryImpl(get(), get()) }
 	single<ExternalAppRepository> { ExternalAppRepository(get(), getAll(), get<DefaultExternalPlayerApi>()) }
 
@@ -158,16 +153,7 @@ val appModule = module {
 	single { VimuExternalPlayerApi() } bind ExternalPlayerApi::class
 	single { DefaultExternalPlayerApi() }
 
-	viewModel { StartupViewModel(get(), get(), get(), get()) }
-	viewModel { UserLoginViewModel(get(), get(), get(), get(defaultDeviceInfo)) }
-	viewModel { ServerAddViewModel(get()) }
-	viewModel { NextUpViewModel(get(), get(), get()) }
-	viewModel { StillWatchingViewModel(get(), get(), get(), get()) }
-	viewModel { PhotoPlayerViewModel(get()) }
-	viewModel { SearchViewModel(get()) }
-	viewModel { DreamViewModel(get(), get(), get(), get(), get()) }
 	viewModel { SettingsViewModel() }
-	viewModel { SettingsLibrariesScreenViewModel(get()) }
 
 	single { BackgroundService(get(), get(), get(), get(), get()) }
 
@@ -175,7 +161,5 @@ val appModule = module {
 	single { ItemLauncher() }
 	single { KeyProcessor() }
 	single { ReportingHelper(get(), get()) }
-	single<PlaybackHelper> { SdkPlaybackHelper(get(), get(), get(), get()) }
-
-	factory { (context: Context) -> SearchFragmentDelegate(context, get(), get()) }
+	single<PlaybackHelper> { SdkPlaybackHelper(get(), get(), get(), get(), get()) }
 }

@@ -15,8 +15,6 @@ import org.jellyfin.androidtv.data.repository.ItemMutationRepository;
 import org.jellyfin.androidtv.ui.itemhandling.AudioQueueBaseRowItem;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem;
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowType;
-import org.jellyfin.androidtv.ui.navigation.Destinations;
-import org.jellyfin.androidtv.ui.navigation.NavigationRepository;
 import org.jellyfin.androidtv.ui.playback.MediaManager;
 import org.jellyfin.androidtv.util.apiclient.Response;
 import org.jellyfin.androidtv.util.sdk.BaseItemExtensionsKt;
@@ -50,7 +48,6 @@ public class KeyProcessor {
     public static final int MENU_TOGGLE_SHUFFLE = 13;
 
     private final Lazy<MediaManager> mediaManager = KoinJavaComponent.<MediaManager>inject(MediaManager.class);
-    private final Lazy<NavigationRepository> navigationRepository = KoinJavaComponent.<NavigationRepository>inject(NavigationRepository.class);
     private final Lazy<ItemMutationRepository> itemMutationRepository = KoinJavaComponent.<ItemMutationRepository>inject(ItemMutationRepository.class);
     private final Lazy<CustomMessageRepository> customMessageRepository = KoinJavaComponent.<CustomMessageRepository>inject(CustomMessageRepository.class);
     private final Lazy<PlaybackHelper> playbackHelper = KoinJavaComponent.<PlaybackHelper>inject(PlaybackHelper.class);
@@ -100,12 +97,6 @@ public class KeyProcessor {
                                 createPlayMenu(rowItem, MediaType.AUDIO.equals(item.getMediaType()), activity);
                                 return true;
                             case PHOTO:
-                                navigationRepository.getValue().navigate(Destinations.INSTANCE.photoPlayer(
-                                        rowItem.getBaseItem().getId(),
-                                        true,
-                                        ItemSortBy.SORT_NAME,
-                                        org.jellyfin.sdk.model.api.SortOrder.ASCENDING
-                                ));
                                 return true;
                         }
                         break;
@@ -322,7 +313,6 @@ public class KeyProcessor {
                     togglePlayed(activity, item.getId(), false);
                     return true;
                 case MENU_GOTO_NOW_PLAYING:
-                    navigationRepository.getValue().navigate(Destinations.INSTANCE.getNowPlaying());
                     return true;
                 case MENU_TOGGLE_SHUFFLE:
                     mediaManager.getValue().shuffleAudioQueue();

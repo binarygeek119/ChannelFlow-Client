@@ -36,7 +36,6 @@ import org.jellyfin.androidtv.ui.playback.overlay.action.GuideAction;
 import org.jellyfin.androidtv.ui.playback.overlay.action.PlayPauseAction;
 import org.jellyfin.androidtv.ui.playback.overlay.action.PlaybackSpeedAction;
 import org.jellyfin.androidtv.ui.playback.overlay.action.PreviousLiveTvChannelAction;
-import org.jellyfin.androidtv.ui.playback.overlay.action.RecordAction;
 import org.jellyfin.androidtv.ui.playback.overlay.action.RewindAction;
 import org.jellyfin.androidtv.ui.playback.overlay.action.SelectAudioAction;
 import org.jellyfin.androidtv.ui.playback.overlay.action.SelectQualityAction;
@@ -68,7 +67,6 @@ public class CustomPlaybackTransportControlGlue extends PlaybackTransportControl
     private PreviousLiveTvChannelAction previousLiveTvChannelAction;
     private ChannelBarChannelAction channelBarChannelAction;
     private GuideAction guideAction;
-    private RecordAction recordAction;
 
     private final PlaybackController playbackController;
     private ArrayObjectAdapter primaryActionsAdapter;
@@ -211,11 +209,6 @@ public class CustomPlaybackTransportControlGlue extends PlaybackTransportControl
         channelBarChannelAction.setLabels(new String[]{context.getString(R.string.lbl_other_channels)});
         guideAction = new GuideAction(context, this);
         guideAction.setLabels(new String[]{context.getString(R.string.lbl_live_tv_guide)});
-        recordAction = new RecordAction(context, this);
-        recordAction.setLabels(new String[]{
-                context.getString(R.string.lbl_record),
-                context.getString(R.string.lbl_cancel_recording)
-        });
     }
 
     @Override
@@ -259,10 +252,6 @@ public class CustomPlaybackTransportControlGlue extends PlaybackTransportControl
         // Secondary Items
         if (playerAdapter.isLiveTv()) {
             secondaryActionsAdapter.add(previousLiveTvChannelAction);
-            if (playerAdapter.canRecordLiveTv()) {
-                secondaryActionsAdapter.add(recordAction);
-                recordingStateChanged();
-            }
         }
 
         if (playerAdapter.hasPreviousItem()) {
@@ -343,12 +332,6 @@ public class CustomPlaybackTransportControlGlue extends PlaybackTransportControl
     }
 
     void recordingStateChanged() {
-        if (getPlayerAdapter().isRecording()) {
-            recordAction.setIndex(RecordAction.INDEX_RECORDING);
-        } else {
-            recordAction.setIndex(RecordAction.INDEX_INACTIVE);
-        }
-        notifyActionChanged(recordAction);
     }
 
     void updatePlayState() {
