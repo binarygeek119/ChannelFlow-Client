@@ -14,6 +14,8 @@
 </a>
 <br/>
 <a href="https://github.com/binarygeek119/ChannelFlow-Client/releases">Download the latest APK</a>
+<br/><br/>
+<strong>Downloader code: <code>3745820</code></strong>
 </p>
 
 ChannelFlow TV is a Leanback Android TV app for watching live IPTV from a [ChannelFlow](https://github.com/binarygeek119/ChannelFlow) server. It opens to the live guide, plays M3U streams, and pairs with a server using a quick pin. There is no Jellyfin login and no DVR.
@@ -21,6 +23,18 @@ ChannelFlow TV is a Leanback Android TV app for watching live IPTV from a [Chann
 It is a fork of [Jellyfin for Android TV](https://github.com/jellyfin/jellyfin-androidtv), cut down to live TV and the guide.
 
 Author: [binarygeek119](https://github.com/binarygeek119)
+
+## Install
+
+On Fire TV or Android TV, install [Downloader](https://www.aftvnews.com/downloader/) from the Amazon Appstore (or Play Store), open it, and enter:
+
+```
+3745820
+```
+
+That code fetches the ChannelFlow TV APK. After it downloads, install it and allow unknown sources if the TV asks.
+
+You can also download `ChannelFlow-TV-v*-release.apk` from [GitHub Releases](https://github.com/binarygeek119/ChannelFlow-Client/releases).
 
 ## Features
 
@@ -35,7 +49,7 @@ Author: [binarygeek119](https://github.com/binarygeek119)
 
 ## Pairing
 
-1. Install ChannelFlow TV on an Android TV, Fire TV, or Android TV emulator.
+1. Install ChannelFlow TV with Downloader code `3745820`, or sideload the release APK.
 2. On the TV, open the app and note the pin shown on screen.
 3. In ChannelFlow, open **Quick Pin** and enter that code.
 4. The TV saves the server and opens the guide.
