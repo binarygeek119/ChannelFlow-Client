@@ -17,6 +17,28 @@
         android:contentDescription="@string/lbl_home"
         android:src="@drawable/ic_house" />
 
+    <ImageButton
+        android:id="@+id/refreshGuide"
+        style="@style/Button.Icon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:contentDescription="@string/lbl_refresh_guide"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_refresh" />
+
+    <ImageButton
+        android:id="@+id/settings"
+        style="@style/Button.Icon"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_marginStart="12dp"
+        android:contentDescription="@string/lbl_settings"
+        android:padding="10dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_settings" />
+
     <TextClock
         android:id="@+id/clock"
         android:layout_width="wrap_content"

@@ -12,13 +12,19 @@ import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.model.DataRefreshService
 import org.jellyfin.androidtv.data.repository.ItemMutationRepository
 import org.jellyfin.androidtv.ui.GuideChannelHeader
+import org.jellyfin.androidtv.ui.livetv.TvManager
+import org.jellyfin.androidtv.ui.livetv.adjacentChannelByNumber
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.model.api.BaseItemKind
 import org.koin.android.ext.android.inject
 import timber.log.Timber
 import java.time.Instant
 import java.util.UUID
 import kotlin.time.Duration
+
+private var lastChannelChangeAt = 0L
+private const val CHANNEL_CHANGE_DEBOUNCE_MS = 250L
 
 fun CustomPlaybackOverlayFragment.toggleFavorite() {
 	val header = mSelectedProgramView as? GuideChannelHeader
@@ -54,6 +60,33 @@ fun CustomPlaybackOverlayFragment.refreshSelectedProgram() {
 		}
 
 		detailUpdateInternal();
+	}
+}
+
+fun CustomPlaybackOverlayFragment.changeChannelByNumber(higher: Boolean) {
+	val now = android.os.SystemClock.elapsedRealtime()
+	if (now - lastChannelChangeAt < CHANNEL_CHANGE_DEBOUNCE_MS) return
+	lastChannelChangeAt = now
+
+	val playbackControllerContainer by inject<PlaybackControllerContainer>()
+	val current = playbackControllerContainer.playbackController?.currentlyPlayingItem ?: return
+	val currentId = if (current.type == BaseItemKind.TV_CHANNEL) current.id else current.channelId ?: current.id
+
+	fun tune(channels: Collection<org.jellyfin.sdk.model.api.BaseItemDto>?) {
+		val next = adjacentChannelByNumber(channels, currentId, higher) ?: return
+		if (next.id == currentId) return
+		Timber.i("Changing live channel %s to %s (%s)", if (higher) "up" else "down", next.number, next.name)
+		switchChannel(next.id)
+	}
+
+	val loaded = TvManager.getAllChannels()
+	if (loaded.isNullOrEmpty()) {
+		TvManager.loadAllChannels(this) {
+			tune(TvManager.getAllChannels())
+			null
+		}
+	} else {
+		tune(loaded)
 	}
 }
 

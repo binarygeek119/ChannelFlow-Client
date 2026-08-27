@@ -6,6 +6,7 @@ import org.jellyfin.androidtv.ui.settings.screen.SettingsMainScreen
 import org.jellyfin.androidtv.ui.settings.screen.SettingsTelemetryScreen
 import org.jellyfin.androidtv.ui.settings.screen.about.SettingsAboutScreen
 import org.jellyfin.androidtv.ui.settings.screen.connection.SettingsConnectionScreen
+import org.jellyfin.androidtv.ui.settings.screen.connection.SettingsRemoveServerScreen
 import org.jellyfin.androidtv.ui.settings.screen.customization.SettingsCustomizationBackdropScreen
 import org.jellyfin.androidtv.ui.settings.screen.customization.SettingsCustomizationClockScreen
 import org.jellyfin.androidtv.ui.settings.screen.customization.SettingsCustomizationScreen
@@ -28,16 +29,13 @@ import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackHEVCLe
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackMaxBitrateScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackPlayerScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackRefreshRateSwitchingBehaviorScreen
-import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackResumeSubtractDurationScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackScreen
 import org.jellyfin.androidtv.ui.settings.screen.playback.SettingsPlaybackZoomModeScreen
-import org.jellyfin.androidtv.ui.settings.screen.playback.mediasegment.SettingsPlaybackMediaSegmentScreen
-import org.jellyfin.androidtv.ui.settings.screen.playback.mediasegment.SettingsPlaybackMediaSegmentsScreen
-import org.jellyfin.sdk.model.api.MediaSegmentType
 
 object Routes {
 	const val MAIN = "/"
 	const val CONNECTION = "/connection"
+	const val CONNECTION_REMOVE = "/connection/remove"
 	const val CUSTOMIZATION = "/customization"
 	const val CUSTOMIZATION_THEME = "/customization/theme"
 	const val CUSTOMIZATION_CLOCK = "/customization/clock"
@@ -51,10 +49,7 @@ object Routes {
 	const val LIVETV_GUIDE_CHANNEL_ORDER = "/livetv/guide/channel-order"
 	const val PLAYBACK = "/playback"
 	const val PLAYBACK_PLAYER = "/playback/player"
-	const val PLAYBACK_MEDIA_SEGMENTS = "/playback/media-segments"
-	const val PLAYBACK_MEDIA_SEGMENT = "/playback/media-segments/{segmentType}"
 	const val PLAYBACK_ADVANCED = "/playback/advanced"
-	const val PLAYBACK_RESUME_SUBTRACT_DURATION = "/playback/resume-subtract-duration"
 	const val PLAYBACK_MAX_BITRATE = "/playback/max-bitrate"
 	const val PLAYBACK_REFRESH_RATE_SWITCHING_BEHAVIOR = "/playback/refresh-rate-switching-behavior"
 	const val PLAYBACK_ZOOM_MODE = "/playback/zoom-mode"
@@ -76,6 +71,9 @@ val routes = mapOf<String, RouteComposable>(
 	},
 	Routes.CONNECTION to {
 		SettingsConnectionScreen()
+	},
+	Routes.CONNECTION_REMOVE to {
+		SettingsRemoveServerScreen()
 	},
 	Routes.CUSTOMIZATION to {
 		SettingsCustomizationScreen()
@@ -116,19 +114,8 @@ val routes = mapOf<String, RouteComposable>(
 	Routes.PLAYBACK_PLAYER to {
 		SettingsPlaybackPlayerScreen()
 	},
-	Routes.PLAYBACK_MEDIA_SEGMENTS to {
-		SettingsPlaybackMediaSegmentsScreen()
-	},
-	Routes.PLAYBACK_MEDIA_SEGMENT to { context ->
-		SettingsPlaybackMediaSegmentScreen(
-			segmentType = context.parameters["segmentType"]?.let(MediaSegmentType::fromNameOrNull)!!,
-		)
-	},
 	Routes.PLAYBACK_ADVANCED to {
 		SettingsPlaybackAdvancedScreen()
-	},
-	Routes.PLAYBACK_RESUME_SUBTRACT_DURATION to {
-		SettingsPlaybackResumeSubtractDurationScreen()
 	},
 	Routes.PLAYBACK_MAX_BITRATE to {
 		SettingsPlaybackMaxBitrateScreen()

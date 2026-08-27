@@ -41,12 +41,14 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory;
 import androidx.media3.extractor.ts.TsExtractor;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.CaptionStyleCompat;
 import androidx.media3.ui.PlayerView;
 
 import org.jellyfin.androidtv.R;
+import org.jellyfin.androidtv.channelflow.ChannelFlowStream;
 import org.jellyfin.androidtv.data.compat.StreamInfo;
 import org.jellyfin.androidtv.preference.UserPreferences;
 import org.jellyfin.androidtv.preference.constant.BufferLength;
@@ -141,7 +143,7 @@ public class VideoManager {
         mExoPlayer.addListener(new Player.Listener() {
             @Override
             public void onPlayerError(@NonNull PlaybackException error) {
-                Timber.e("***** Got error from player");
+                Timber.e(error, "ExoPlayer failed: %s", error.getErrorCodeName());
                 if (mPlaybackControllerNotifiable != null) mPlaybackControllerNotifiable.onError();
                 stopProgressLoop();
             }
@@ -225,7 +227,7 @@ public class VideoManager {
         DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
         trackSelector.setParameters(trackSelector.buildUponParameters()
                 .setAudioOffloadPreferences(new TrackSelectionParameters.AudioOffloadPreferences.Builder()
-                        .setAudioOffloadMode(TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                        .setAudioOffloadMode(TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED)
                         .build()
                 )
                 .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
@@ -234,8 +236,12 @@ public class VideoManager {
         exoPlayerBuilder.setTrackSelector(trackSelector);
 
         DefaultExtractorsFactory extractorsFactory = new DefaultExtractorsFactory().setTsExtractorTimestampSearchBytes(TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES * 3);
+        extractorsFactory.setTsExtractorFlags(
+                DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES
+                        | DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+        );
         extractorsFactory.setConstantBitrateSeekingEnabled(true);
-        extractorsFactory.setConstantBitrateSeekingAlwaysEnabled(true);
+        extractorsFactory.setConstantBitrateSeekingAlwaysEnabled(false);
         DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(context, exoPlayerHttpDataSourceFactory);
         if (assHandler != null) {
             AssSubtitleParserFactory assSubtitleParserFactory = new AssSubtitleParserFactory(assHandler);
@@ -397,28 +403,36 @@ public class VideoManager {
         try {
             // Add external subtitles
             List<MediaItem.SubtitleConfiguration> subtitleConfigurations = new ArrayList<>();
-            for (MediaStream mediaStream : streamInfo.getMediaSource().getMediaStreams()) {
-                if (mediaStream.getType() != MediaStreamType.SUBTITLE) continue;
+            List<MediaStream> mediaStreams = streamInfo.getMediaSource() != null ? streamInfo.getMediaSource().getMediaStreams() : null;
+            if (mediaStreams != null) {
+                for (MediaStream mediaStream : mediaStreams) {
+                    if (mediaStream.getType() != MediaStreamType.SUBTITLE) continue;
 
-                if (mediaStream.getDeliveryMethod() == SubtitleDeliveryMethod.EXTERNAL) {
-                    Uri subtitleUri = Uri.parse(api.createUrl(mediaStream.getDeliveryUrl(), Collections.emptyMap(), Collections.emptyMap(), true));
-                    MediaItem.SubtitleConfiguration subtitleConfiguration = new MediaItem.SubtitleConfiguration.Builder(subtitleUri)
-                            .setId("JF_EXTERNAL:" + String.valueOf(mediaStream.getIndex()))
-                            .setMimeType(VideoManagerHelperKt.getSubtitleMediaStreamCodec(mediaStream))
-                            .setLanguage(mediaStream.getLanguage())
-                            .setLabel(mediaStream.getDisplayTitle())
-                            .setSelectionFlags(getSubtitleSelectionFlags(mediaStream))
-                            .build();
-                    Timber.i("Adding subtitle track %s of type %s", subtitleConfiguration.uri, subtitleConfiguration.mimeType);
-                    subtitleConfigurations.add(subtitleConfiguration);
+                    if (mediaStream.getDeliveryMethod() == SubtitleDeliveryMethod.EXTERNAL) {
+                        Uri subtitleUri = Uri.parse(api.createUrl(mediaStream.getDeliveryUrl(), Collections.emptyMap(), Collections.emptyMap(), true));
+                        MediaItem.SubtitleConfiguration subtitleConfiguration = new MediaItem.SubtitleConfiguration.Builder(subtitleUri)
+                                .setId("JF_EXTERNAL:" + String.valueOf(mediaStream.getIndex()))
+                                .setMimeType(VideoManagerHelperKt.getSubtitleMediaStreamCodec(mediaStream))
+                                .setLanguage(mediaStream.getLanguage())
+                                .setLabel(mediaStream.getDisplayTitle())
+                                .setSelectionFlags(getSubtitleSelectionFlags(mediaStream))
+                                .build();
+                        Timber.i("Adding subtitle track %s of type %s", subtitleConfiguration.uri, subtitleConfiguration.mimeType);
+                        subtitleConfigurations.add(subtitleConfiguration);
+                    }
                 }
             }
 
-            MediaItem mediaItem = new MediaItem.Builder()
+            MediaItem.Builder mediaItemBuilder = new MediaItem.Builder()
                     .setUri(Uri.parse(path))
-                    .setSubtitleConfigurations(subtitleConfigurations)
-                    .build();
+                    .setMimeType(ChannelFlowStream.INSTANCE.mimeType(path))
+                    .setSubtitleConfigurations(subtitleConfigurations);
+            if (ChannelFlowStream.INSTANCE.isLive(path)) {
+                mediaItemBuilder.setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().build());
+            }
+            MediaItem mediaItem = mediaItemBuilder.build();
 
+            Timber.i("Playing stream mime=%s live=%s", ChannelFlowStream.INSTANCE.mimeType(path), ChannelFlowStream.INSTANCE.isLive(path));
             mExoPlayer.setMediaItem(mediaItem);
             mExoPlayer.prepare();
         } catch (IllegalStateException e) {

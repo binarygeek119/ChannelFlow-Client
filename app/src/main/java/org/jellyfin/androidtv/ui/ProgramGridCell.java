@@ -14,6 +14,8 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.core.content.ContextCompat;
+
 import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.preference.LiveTvPreferences;
 import org.jellyfin.androidtv.ui.livetv.LiveTvGuide;
@@ -52,10 +54,12 @@ public class ProgramGridCell extends RelativeLayout {
         mProgramName = findViewById(R.id.programName);
         mInfoRow = findViewById(R.id.infoRow);
         mProgramName.setText(program.getName());
+        mProgramName.setTextColor(ContextCompat.getColor(context, R.color.channelflow_text));
         mProgram = program;
         mRecIndicator = findViewById(R.id.recIndicator);
 
         setCellBackground();
+        applyGuideChrome(false);
 
         if (program.getStartDate() != null && program.getEndDate() != null) {
             LocalDateTime localStart = program.getStartDate();
@@ -64,6 +68,7 @@ public class ProgramGridCell extends RelativeLayout {
                 TextView time = new TextView(context);
                 time.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
                 time.setTextSize(12);
+                time.setTextColor(ContextCompat.getColor(context, R.color.channelflow_muted));
                 time.setText(DateTimeExtensionsKt.getTimeFormatter(getContext()).format(program.getStartDate()));
                 mInfoRow.addView(time);
             }
@@ -133,6 +138,7 @@ public class ProgramGridCell extends RelativeLayout {
 
             setBackgroundColor(mBackgroundColor);
         }
+        applyGuideChrome(false);
     }
 
     @Override
@@ -140,11 +146,19 @@ public class ProgramGridCell extends RelativeLayout {
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
 
         if (gainFocus) {
-            setBackgroundColor(Utils.getThemeColor(getContext(), android.R.attr.colorAccent));
-
+            applyGuideChrome(true);
             mActivity.setSelectedProgram(this);
         } else {
-            setBackgroundColor(mBackgroundColor);
+            applyGuideChrome(false);
+        }
+    }
+
+    private void applyGuideChrome(boolean focused) {
+        setBackground(org.jellyfin.androidtv.channelflow.ChannelFlowGuideChrome.INSTANCE.programBackground(getContext(), mProgram, focused));
+        if (mProgramName != null) {
+            mProgramName.setTextColor(ContextCompat.getColor(getContext(), focused
+                    ? R.color.white
+                    : R.color.channelflow_text));
         }
     }
 

@@ -1,24 +1,19 @@
 package org.jellyfin.androidtv.preference.store
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.jellyfin.preference.Preference
 import org.jellyfin.preference.PreferenceEnum
 import org.jellyfin.preference.migration.MigrationContext
 import org.jellyfin.preference.store.AsyncPreferenceStore
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.exception.ApiClientException
-import org.jellyfin.sdk.api.client.extensions.displayPreferencesApi
 import org.jellyfin.sdk.model.api.DisplayPreferencesDto
 import org.jellyfin.sdk.model.api.ScrollDirection
 import org.jellyfin.sdk.model.api.SortOrder
-import timber.log.Timber
 
 @Suppress("TooManyFunctions")
 abstract class DisplayPreferencesStore(
 	protected var displayPreferencesId: String,
 	protected var app: String = "jellyfin-androidtv",
-	private val api: ApiClient,
+	@Suppress("UnusedParameter") api: ApiClient,
 ) : AsyncPreferenceStore<Unit, Unit>() {
 	private var displayPreferencesDto: DisplayPreferencesDto? = null
 	private var cachedPreferences: MutableMap<String, String?> = mutableMapOf()
@@ -26,22 +21,8 @@ abstract class DisplayPreferencesStore(
 		get() = displayPreferencesDto == null
 
 	override suspend fun commit(): Boolean {
-		if (displayPreferencesDto == null) return false
-
-		try {
-			api.displayPreferencesApi.updateDisplayPreferences(
-				displayPreferencesId = displayPreferencesId,
-				client = app,
-				data = displayPreferencesDto!!.copy(
-					customPrefs = cachedPreferences
-				)
-			)
-		} catch (err: ApiClientException) {
-			Timber.e(err, "Unable to save displaypreferences. (displayPreferencesId=$displayPreferencesId, app=$app)")
-			return false
-		}
-
-		return true
+		// Preferences stay on-device; ChannelFlow has no Jellyfin display-preferences API.
+		return displayPreferencesDto != null
 	}
 
 	/**
@@ -57,27 +38,11 @@ abstract class DisplayPreferencesStore(
 	}
 
 	override suspend fun update(): Boolean {
-		try {
-			val result = withContext(Dispatchers.IO) {
-				api.displayPreferencesApi.getDisplayPreferences(
-					displayPreferencesId = displayPreferencesId,
-					client = app
-				).content
-			}
-			displayPreferencesDto = result
-			cachedPreferences = result.customPrefs.toMutableMap()
-
-			return true
-		} catch (err: ApiClientException) {
-			Timber.e(err, "Unable to retrieve displaypreferences. (displayPreferencesId=$displayPreferencesId, app=$app)")
-
-			if (displayPreferencesDto == null) {
-				Timber.i("Creating an empty DisplayPreferencesDto for next commit.")
-				displayPreferencesDto = DisplayPreferencesDto.empty()
-			}
-
-			return false
+		if (displayPreferencesDto == null) {
+			displayPreferencesDto = DisplayPreferencesDto.empty()
+			cachedPreferences = mutableMapOf()
 		}
+		return true
 	}
 
 	override fun getInt(key: String, defaultValue: Int) =

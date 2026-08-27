@@ -1,6 +1,7 @@
 package org.jellyfin.androidtv.ui.playback
 
 import android.content.Context
+import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
 import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.ui.navigation.ActivityDestinations
 import org.jellyfin.androidtv.ui.navigation.Destinations
@@ -18,6 +19,7 @@ class PlaybackLauncher(
 	private val videoQueueManager: VideoQueueManager,
 	private val navigationRepository: NavigationRepository,
 	private val userPreferences: UserPreferences,
+	private val catalog: ChannelFlowGuideRepository,
 ) {
 	private val BaseItemDto.supportsExternalPlayer
 		get() = when (type) {
@@ -40,12 +42,14 @@ class PlaybackLauncher(
 	) {
 		if (items.any { it.mediaType == MediaType.AUDIO }) return
 
-		val items = if (shuffle) items.shuffled() else items
-
-		videoQueueManager.setCurrentVideoQueue(items.toList())
-		videoQueueManager.setCurrentMediaPosition(itemsPosition)
+		val items = (if (shuffle) items.shuffled() else items).filter { item ->
+			catalog.getStreamUrl(item.id) != null || item.channelId?.let(catalog::getStreamUrl) != null
+		}
 
 		if (items.isEmpty()) return
+
+		videoQueueManager.setCurrentVideoQueue(items.toList())
+		videoQueueManager.setCurrentMediaPosition(itemsPosition.coerceIn(0, items.lastIndex))
 
 		if (userPreferences[UserPreferences.useExternalPlayer] && items.all { it.supportsExternalPlayer }) {
 			context.startActivity(ActivityDestinations.externalPlayer(context, position?.milliseconds ?: Duration.ZERO))

@@ -23,7 +23,7 @@ import timber.log.Timber;
 public class LeanbackOverlayFragment extends PlaybackSupportFragment {
     private CustomPlaybackTransportControlGlue playerGlue;
     private VideoPlayerAdapter playerAdapter;
-    private boolean shouldShowOverlay = true;
+    private boolean shouldShowOverlay = false;
     private Lazy<PlaybackControllerContainer> playbackControllerContainer = inject(PlaybackControllerContainer.class);
     private final Lazy<UserSettingPreferences> userSettingPreferences = inject(UserSettingPreferences.class);
     private Lazy<ImageLoader> imageLoader = inject(ImageLoader.class);

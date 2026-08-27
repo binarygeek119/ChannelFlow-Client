@@ -62,6 +62,7 @@ class ConnectPinFragment : Fragment() {
 				onSuccess = { connection ->
 					connectionStore.save(connection)
 					catalog.clear()
+					catalog.prefetchLatest()
 					(activity as? StartupActivity)?.openMain()
 				},
 				onFailure = { error ->

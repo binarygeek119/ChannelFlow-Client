@@ -11,7 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.dp
-import org.jellyfin.androidtv.ui.base.JellyfinTheme
+import androidx.compose.ui.res.colorResource
+import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.LocalShapes
 import org.jellyfin.design.Tokens
 
@@ -24,7 +25,7 @@ fun SettingsLayout(
 		modifier = modifier
 			.padding(Tokens.Space.spaceMd)
 			.clip(LocalShapes.current.large)
-			.background(JellyfinTheme.colorScheme.surface)
+			.background(colorResource(R.color.channelflow_drawer))
 			.width(350.dp)
 			.fillMaxHeight()
 			.focusRestorer(),

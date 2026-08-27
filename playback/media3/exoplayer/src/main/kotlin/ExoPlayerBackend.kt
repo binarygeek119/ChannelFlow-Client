@@ -7,6 +7,7 @@ import androidx.annotation.OptIn
 import androidx.core.content.getSystemService
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
@@ -22,6 +23,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.extractor.ts.TsExtractor
 import androidx.media3.ui.SubtitleView
 import io.github.peerless2012.ass.media.AssHandler
@@ -59,6 +61,27 @@ class ExoPlayerBackend(
 		const val TS_SEARCH_BYTES_LM = TsExtractor.TS_PACKET_SIZE * 1800
 		const val TS_SEARCH_BYTES_HM = TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES
 		const val MEDIA_ITEM_COUNT_MAX = 10
+
+		private fun pathOf(url: String): String = url.substringBefore('#').substringBefore('?').lowercase()
+
+		private fun isLiveUrl(url: String): Boolean {
+			val path = pathOf(url)
+			return path.contains(".m3u8") || path.contains("/iptv/") || path.contains("/live") ||
+				path.endsWith(".ts") || path.endsWith(".m2ts")
+		}
+
+		private fun mimeTypeForUrl(url: String): String? {
+			val path = pathOf(url)
+			return when {
+				path.contains(".m3u8") || path.endsWith(".m3u") -> MimeTypes.APPLICATION_M3U8
+				path.contains(".mpd") -> MimeTypes.APPLICATION_MPD
+				path.endsWith(".mp4") || path.endsWith(".m4v") -> MimeTypes.VIDEO_MP4
+				path.endsWith(".mkv") -> MimeTypes.VIDEO_MATROSKA
+				path.endsWith(".webm") -> MimeTypes.VIDEO_WEBM
+				path.contains("/iptv/stream/") || path.endsWith(".ts") || path.endsWith(".m2ts") -> MimeTypes.VIDEO_MP2T
+				else -> MimeTypes.VIDEO_MP2T
+			}
+		}
 	}
 
 	private var currentStream: PlayableMediaStream? = null
@@ -85,8 +108,12 @@ class ExoPlayerBackend(
 					false -> TS_SEARCH_BYTES_HM
 				}
 			)
+			setTsExtractorFlags(
+				DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+					DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+			)
 			setConstantBitrateSeekingEnabled(true)
-			setConstantBitrateSeekingAlwaysEnabled(true)
+			setConstantBitrateSeekingAlwaysEnabled(false)
 		}
 
 		val mediaSourceFactory = if (exoPlayerOptions.enableLibass) {
@@ -126,7 +153,7 @@ class ExoPlayerBackend(
 				setParameters(buildUponParameters().apply {
 					setAudioOffloadPreferences(
 						TrackSelectionParameters.AudioOffloadPreferences.DEFAULT.buildUpon().apply {
-							setAudioOffloadMode(TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+							setAudioOffloadMode(TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED)
 						}.build()
 					)
 					setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
@@ -234,6 +261,10 @@ class ExoPlayerBackend(
 			setTag(item)
 			setMediaId(stream.hashCode().toString())
 			setUri(stream.url)
+			mimeTypeForUrl(stream.url)?.let(::setMimeType)
+			if (isLiveUrl(stream.url)) {
+				setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+			}
 		}.build()
 
 		// Remove any excessive items from the start

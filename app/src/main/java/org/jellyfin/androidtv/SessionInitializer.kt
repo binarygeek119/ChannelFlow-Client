@@ -8,6 +8,8 @@ import androidx.startup.Initializer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.auth.repository.SessionRepository
+import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
+import org.jellyfin.androidtv.channelflow.ChannelFlowUpdateChecker
 import org.jellyfin.androidtv.di.KoinInitializer
 
 @Suppress("unused")
@@ -17,9 +19,15 @@ class SessionInitializer : Initializer<Unit> {
 			.initializeComponent(KoinInitializer::class.java)
 			.koin
 
-		// Restore system session
-		ProcessLifecycleOwner.get().lifecycleScope.launch(Dispatchers.IO) {
+		val scope = ProcessLifecycleOwner.get().lifecycleScope
+		scope.launch(Dispatchers.IO) {
 			koin.get<SessionRepository>().restoreSession(destroyOnly = false)
+		}
+		scope.launch(Dispatchers.IO) {
+			koin.get<ChannelFlowGuideRepository>().prefetchLatest()
+		}
+		scope.launch(Dispatchers.IO) {
+			koin.get<ChannelFlowUpdateChecker>().prefetch()
 		}
 	}
 

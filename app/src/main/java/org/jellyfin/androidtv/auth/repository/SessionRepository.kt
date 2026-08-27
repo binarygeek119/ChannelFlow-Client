@@ -12,11 +12,9 @@ import org.jellyfin.androidtv.auth.model.Server
 import org.jellyfin.androidtv.auth.store.AuthenticationPreferences
 import org.jellyfin.androidtv.auth.store.AuthenticationStore
 import org.jellyfin.androidtv.preference.PreferencesRepository
-import org.jellyfin.androidtv.preference.TelemetryPreferences
 import org.jellyfin.androidtv.util.sdk.forUser
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
-import org.jellyfin.sdk.api.client.extensions.clientLogApi
 import org.jellyfin.sdk.api.client.extensions.userApi
 import org.jellyfin.sdk.model.DeviceInfo
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
@@ -52,7 +50,6 @@ class SessionRepositoryImpl(
 	private val defaultDeviceInfo: DeviceInfo,
 	private val userRepository: UserRepository,
 	private val serverRepository: ServerRepository,
-	private val telemetryPreferences: TelemetryPreferences,
 ) : SessionRepository {
 	private val currentSessionMutex = Mutex()
 	private val _currentSession = MutableStateFlow<Session?>(null)
@@ -134,11 +131,6 @@ class SessionRepositoryImpl(
 				destroyCurrentSession()
 				return false
 			}
-
-			// Update crash reporting URL
-			val crashReportUrl = userApiClient.clientLogApi.logFileUrl()
-			telemetryPreferences[TelemetryPreferences.crashReportUrl] = crashReportUrl
-			telemetryPreferences[TelemetryPreferences.crashReportToken] = session.accessToken
 		} else {
 			userRepository.setCurrentUser(null)
 			serverRepository.setCurrentServer(null)

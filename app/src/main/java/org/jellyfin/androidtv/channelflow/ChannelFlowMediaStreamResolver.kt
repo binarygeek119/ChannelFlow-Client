@@ -19,7 +19,7 @@ class ChannelFlowMediaStreamResolver(
 		return PlayableMediaStream(
 			identifier = item.id.toString(),
 			conversionMethod = MediaConversionMethod.None,
-			container = MediaStreamContainer(format = "ts"),
+			container = MediaStreamContainer(format = ChannelFlowStream.container(url)),
 			tracks = emptyList(),
 			queueEntry = queueEntry,
 			url = url,

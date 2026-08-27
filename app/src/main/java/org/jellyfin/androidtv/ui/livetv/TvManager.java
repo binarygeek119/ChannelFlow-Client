@@ -3,6 +3,8 @@ package org.jellyfin.androidtv.ui.livetv;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.text.format.DateUtils;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -14,6 +16,7 @@ import androidx.leanback.widget.Row;
 
 import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.preference.SystemPreferences;
+import org.jellyfin.androidtv.ui.GuideChannelHeader;
 import org.jellyfin.androidtv.ui.ProgramGridCell;
 import org.jellyfin.androidtv.ui.itemhandling.ItemRowAdapter;
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter;
@@ -22,6 +25,7 @@ import org.jellyfin.androidtv.util.TimeUtils;
 import org.jellyfin.androidtv.util.Utils;
 import org.jellyfin.androidtv.util.apiclient.EmptyResponse;
 import org.jellyfin.sdk.model.api.BaseItemDto;
+import org.jellyfin.sdk.model.api.BaseItemKind;
 import org.koin.java.KoinJavaComponent;
 
 import java.time.Instant;
@@ -51,11 +55,74 @@ public class TvManager {
     }
 
     public static void setLastLiveTvChannel(UUID id) {
+        if (id == null) return;
         SystemPreferences systemPreferences = KoinJavaComponent.<SystemPreferences>get(SystemPreferences.class);
-        systemPreferences.set(SystemPreferences.Companion.getLiveTvPrevChannel(), systemPreferences.get(SystemPreferences.Companion.getLiveTvLastChannel()));
+        String previous = systemPreferences.get(SystemPreferences.Companion.getLiveTvLastChannel());
+        if (id.toString().equals(previous)) {
+            updateLastPlayedDate(id);
+            fillChannelIds();
+            return;
+        }
+        systemPreferences.set(SystemPreferences.Companion.getLiveTvPrevChannel(), previous);
         systemPreferences.set(SystemPreferences.Companion.getLiveTvLastChannel(), id.toString());
         updateLastPlayedDate(id);
         fillChannelIds();
+    }
+
+    public static UUID resolveChannelId(BaseItemDto item) {
+        if (item == null) return getLastLiveTvChannel();
+        if (item.getType() == BaseItemKind.TV_CHANNEL || item.getType() == BaseItemKind.LIVE_TV_CHANNEL) {
+            return item.getId();
+        }
+        if (item.getChannelId() != null) return item.getChannelId();
+        return item.getId();
+    }
+
+    public static int pageStartIndex(int channelIndex, int pageSize) {
+        if (allChannels == null || allChannels.isEmpty() || pageSize <= 0) return 0;
+        if (channelIndex <= 0 || channelIndex < pageSize) return 0;
+        int start = channelIndex - (pageSize / 2);
+        if (start < 0) start = 0;
+        int maxStart = Math.max(0, allChannels.size() - pageSize);
+        return Math.min(start, maxStart);
+    }
+
+    public static boolean requestFocusForChannel(LinearLayout channelHeaders, LinearLayout programRows, UUID channelId) {
+        if (channelHeaders == null || programRows == null || channelId == null) return false;
+        int count = Math.min(channelHeaders.getChildCount(), programRows.getChildCount());
+        for (int i = 0; i < count; i++) {
+            View header = channelHeaders.getChildAt(i);
+            if (!(header instanceof GuideChannelHeader)) continue;
+            BaseItemDto channel = ((GuideChannelHeader) header).getChannel();
+            if (channel == null || !channelId.equals(channel.getId())) continue;
+
+            View target = currentProgramCell(programRows.getChildAt(i));
+            if (target == null) target = header;
+            View focus = target;
+            focus.post(focus::requestFocus);
+            return true;
+        }
+        return false;
+    }
+
+    private static View currentProgramCell(View row) {
+        if (!(row instanceof ViewGroup)) return row;
+        ViewGroup group = (ViewGroup) row;
+        LocalDateTime now = LocalDateTime.now();
+        View fallback = null;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (!(child instanceof ProgramGridCell)) continue;
+            if (fallback == null) fallback = child;
+            BaseItemDto program = ((ProgramGridCell) child).getProgram();
+            if (program == null) continue;
+            LocalDateTime start = program.getStartDate();
+            LocalDateTime end = program.getEndDate();
+            if (start != null && end != null && !start.isAfter(now) && end.isAfter(now)) {
+                return child;
+            }
+        }
+        return fallback != null ? fallback : row;
     }
 
     public static UUID getPrevLiveTvChannel() {
@@ -110,11 +177,11 @@ public class TvManager {
         if (allChannels != null) {
             channelIds = new UUID[allChannels.size()];
             UUID last = getLastLiveTvChannel();
-            if (last == null) return ndx;
             int i = 0;
             for (BaseItemDto channel : allChannels) {
-                channelIds[i++] = channel.getId();
-                if (channel.getId().equals(last)) ndx = i;
+                channelIds[i] = channel.getId();
+                if (last != null && channel.getId().equals(last)) ndx = i;
+                i++;
             }
         }
 
@@ -124,10 +191,23 @@ public class TvManager {
     public static void getProgramsAsync(Fragment fragment, int startNdx, int endNdx, final LocalDateTime startTime, LocalDateTime endTime, final EmptyResponse outerResponse) {
         LocalDateTime startTimeRounded = startTime.withMinute(startTime.getMinute() >= 30 ? 30 : 0).withSecond(0).withNano(0);
         LocalDateTime endTimeRounded = endTime.minusSeconds(1);
+        forceReload = false;
 
-        endNdx = endNdx > channelIds.length ? channelIds.length : endNdx+1; //array copy range final ndx is exclusive
+        if (channelIds == null || channelIds.length == 0) {
+            mProgramsDict = new HashMap<>();
+            outerResponse.onResponse();
+            return;
+        }
 
-        TvManagerHelperKt.getPrograms(fragment, Arrays.copyOfRange(channelIds, startNdx, endNdx), startTimeRounded, endTimeRounded, programs -> {
+        int exclusiveEnd = endNdx + 1;
+        if (exclusiveEnd > channelIds.length) exclusiveEnd = channelIds.length;
+        int inclusiveStart = Math.max(0, startNdx);
+        if (inclusiveStart >= exclusiveEnd) {
+            outerResponse.onResponse();
+            return;
+        }
+
+        TvManagerHelperKt.getPrograms(fragment, Arrays.copyOfRange(channelIds, inclusiveStart, exclusiveEnd), startTimeRounded, endTimeRounded, programs -> {
             if (programs != null) {
                 Timber.d("*** About to build dictionary");
                 buildProgramsDict(programs, startTime);

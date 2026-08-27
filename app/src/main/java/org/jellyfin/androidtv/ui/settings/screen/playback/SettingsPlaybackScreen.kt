@@ -71,15 +71,6 @@ fun SettingsPlaybackScreen() {
 
 		item {
 			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_clapperboard), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_playback_media_segments)) },
-				onClick = { router.push(Routes.PLAYBACK_MEDIA_SEGMENTS) },
-				modifier = Modifier.focusKey(Routes.PLAYBACK_MEDIA_SEGMENTS)
-			)
-		}
-
-		item {
-			ListButton(
 				leadingContent = { Icon(painterResource(R.drawable.ic_more), contentDescription = null) },
 				headingContent = { Text(stringResource(R.string.pref_playback_advanced)) },
 				onClick = { router.push(Routes.PLAYBACK_ADVANCED) },

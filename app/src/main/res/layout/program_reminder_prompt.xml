@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/popup_menu_back"
+    android:orientation="vertical"
+    android:padding="28dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@color/channelflow_accent"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="3dp"
+        android:text="@string/lbl_program_starting"
+        android:textAllCaps="true"
+        android:textColor="@color/white"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-light"
+        android:maxLines="2"
+        android:textColor="@color/channelflow_text"
+        android:textSize="26sp"
+        tools:text="Program title" />
+
+    <TextView
+        android:id="@+id/episodeTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:textColor="@color/channelflow_accent_hover"
+        android:textSize="16sp"
+        android:visibility="gone"
+        tools:text="Episode title"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/channel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/channelflow_muted"
+        android:textSize="16sp"
+        tools:text="12.1  Channel Name" />
+
+    <TextView
+        android:id="@+id/message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:fontFamily="sans-serif-light"
+        android:lineSpacingMultiplier="1.15"
+        android:text="@string/msg_watch_reminder"
+        android:textColor="@color/channelflow_text"
+        android:textSize="16sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/keepWatchingButton"
+            style="@style/Button.Default"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            android:text="@string/lbl_keep_watching" />
+
+        <Button
+            android:id="@+id/watchNowButton"
+            style="@style/Button.Default"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/watch_now" />
+    </LinearLayout>
+</LinearLayout>

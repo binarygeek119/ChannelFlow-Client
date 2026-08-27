@@ -159,7 +159,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         mVideoManager.subscribe(this);
         mVideoManager.setZoom(userPreferences.getValue().get(UserPreferences.Companion.getPlayerZoomMode()));
         mFragment = fragment;
-        directStreamLiveTv = userPreferences.getValue().get(UserPreferences.Companion.getLiveTvDirectPlayEnabled());
+        directStreamLiveTv = true;
     }
 
     public void setItems(List<BaseItemDto> items) {
@@ -454,8 +454,12 @@ public class PlaybackController implements PlaybackControllerNotifiable {
                     return;
                 }
 
-                // make sure item isn't missing
-                if (item.getLocationType() == LocationType.VIRTUAL) {
+                // Virtual is Jellyfin's placeholder for unaired/missing library episodes,
+                // not live TV channels (ChannelFlow maps IPTV as remote streams).
+                if (item.getLocationType() == LocationType.VIRTUAL
+                        && item.getType() != BaseItemKind.TV_CHANNEL
+                        && item.getType() != BaseItemKind.PROGRAM
+                        && item.getType() != BaseItemKind.LIVE_TV_CHANNEL) {
                     if (hasNextItem()) {
                         new AlertDialog.Builder(mFragment.getContext())
                                 .setTitle(R.string.episode_missing)
@@ -490,7 +494,10 @@ public class PlaybackController implements PlaybackControllerNotifiable {
                     return;
                 }
 
-                isLiveTv = item.getType() == BaseItemKind.TV_CHANNEL;
+                isLiveTv = item.getType() == BaseItemKind.TV_CHANNEL
+                        || item.getType() == BaseItemKind.LIVE_TV_CHANNEL
+                        || item.getType() == BaseItemKind.PROGRAM;
+                TvManager.setLastLiveTvChannel(TvManager.resolveChannelId(item));
                 startSpinner();
 
                 // undo setting mSeekPosition for liveTV
@@ -530,7 +537,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
             internalOptions.setSubtitleStreamIndex(forcedSubtitleIndex);
         }
         MediaSourceInfo currentMediaSource = getCurrentMediaSource();
-        if (forcedAudioLanguage != null) {
+        if (forcedAudioLanguage != null && currentMediaSource != null && currentMediaSource.getMediaStreams() != null) {
             // find the first audio stream with the requested language
             for (MediaStream stream : currentMediaSource.getMediaStreams()) {
                 if (stream.getType() == MediaStreamType.AUDIO && forcedAudioLanguage.equals(stream.getLanguage())) {
@@ -554,13 +561,16 @@ public class PlaybackController implements PlaybackControllerNotifiable {
     private void playInternal(final BaseItemDto item, final Long position, final VideoOptions internalOptions) {
         if (isLiveTv) {
             updateTvProgramInfo();
-            TvManager.setLastLiveTvChannel(item.getId());
+            TvManager.setLastLiveTvChannel(TvManager.resolveChannelId(item));
             //internal/exo player
             Timber.i("Using internal player for Live TV");
             playbackManager.getValue().getVideoStreamInfo(mFragment, internalOptions, position * 10000, new Response<StreamInfo>(mFragment.getLifecycle()) {
                 @Override
                 public void onResponse(StreamInfo response) {
-                    if (!isActive()) return;
+                    if (!isActive() && !hasInitializedVideoManager()) {
+                        Timber.w("Dropping stream info because player is not ready");
+                        return;
+                    }
                     if (mVideoManager == null)
                         return;
                     mCurrentOptions = internalOptions;
@@ -569,7 +579,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
 
                 @Override
                 public void onError(Exception exception) {
-                    if (!isActive()) return;
+                    Timber.e(exception, "Unable to get ChannelFlow stream info");
                     handlePlaybackInfoError(exception);
                 }
             });
@@ -736,7 +746,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
     }
 
     private Integer bestGuessAudioTrack(MediaSourceInfo info) {
-        if (info == null)
+        if (info == null || info.getMediaStreams() == null)
             return null;
 
         boolean videoFound = false;
@@ -752,7 +762,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
     }
 
     private Integer lastChosenLanguageAudioTrack(MediaSourceInfo info) {
-        if (info == null)
+        if (info == null || info.getMediaStreams() == null)
             return null;
 
         boolean videoFound = false;

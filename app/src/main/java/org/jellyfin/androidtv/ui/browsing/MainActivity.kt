@@ -12,15 +12,21 @@ import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
+import org.jellyfin.androidtv.channelflow.ChannelFlowReminder
+import org.jellyfin.androidtv.channelflow.ChannelFlowReminderScheduler
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
 import org.jellyfin.androidtv.ui.background.AppBackground
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.ProvideLocalInteractionTracker
 import org.jellyfin.androidtv.ui.composable.compat.AppNavigationHost
 import org.jellyfin.androidtv.ui.livetv.LiveTvStartup
+import org.jellyfin.androidtv.ui.livetv.ProgramDetailDialog
+import org.jellyfin.androidtv.ui.livetv.ProgramReminderPrompt
+import org.jellyfin.androidtv.ui.livetv.TvManager
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
+import org.jellyfin.androidtv.ui.playback.PlaybackControllerContainer
 import org.jellyfin.androidtv.ui.settings.compat.MainActivitySettings
+import org.jellyfin.androidtv.util.PlaybackHelper
 import org.jellyfin.androidtv.util.applyTheme
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -29,6 +35,9 @@ class MainActivity : FragmentActivity() {
 	private val navigationRepository by inject<NavigationRepository>()
 	private val interactionTrackerViewModel by viewModel<InteractionTrackerViewModel>()
 	private val liveTvStartup by inject<LiveTvStartup>()
+	private val reminders by inject<ChannelFlowReminderScheduler>()
+	private val playbackHelper by inject<PlaybackHelper>()
+	private val playbackControllerContainer by inject<PlaybackControllerContainer>()
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		applyTheme()
@@ -64,10 +73,13 @@ class MainActivity : FragmentActivity() {
 		}
 
 		if (savedInstanceState == null) {
-			lifecycleScope.launch {
-				liveTvStartup.playRandomChannel(this@MainActivity)
-			}
+			liveTvStartup.prefetchGuide()
 		}
+
+		reminders.pending
+			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
+			.onEach { reminder -> if (reminder != null) showWatchReminder(reminder) }
+			.launchIn(lifecycleScope)
 	}
 
 	override fun onResume() {
@@ -76,6 +88,7 @@ class MainActivity : FragmentActivity() {
 		applyTheme()
 
 		interactionTrackerViewModel.activityPaused = false
+		reminders.checkDue()
 	}
 
 	override fun onPause() {
@@ -101,4 +114,27 @@ class MainActivity : FragmentActivity() {
 
 	override fun onKeyLongPress(keyCode: Int, event: KeyEvent?): Boolean =
 		onKeyEvent(keyCode, event) || super.onKeyUp(keyCode, event)
+
+	private fun showWatchReminder(reminder: ChannelFlowReminder) {
+		val playingChannel = playbackControllerContainer.playbackController?.currentlyPlayingItem
+			?.let(TvManager::resolveChannelId)
+		if (playingChannel == reminder.channelUuid()) {
+			reminders.acknowledge(reminder.programId)
+			return
+		}
+
+		if (ProgramReminderPrompt.isShowing()) return
+		ProgramDetailDialog.dismiss()
+		ProgramReminderPrompt.show(
+			activity = this,
+			reminder = reminder,
+			onWatchNow = { due ->
+				reminders.acknowledge(due.programId)
+				playbackHelper.retrieveAndPlay(due.channelUuid(), false, this)
+			},
+			onKeepWatching = { due ->
+				reminders.acknowledge(due.programId)
+			},
+		)
+	}
 }

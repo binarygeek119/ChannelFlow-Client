@@ -7,8 +7,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
@@ -19,7 +21,7 @@ import kotlin.coroutines.resumeWithException
 
 class ChannelFlowPairClient {
 	companion object {
-		const val PIN_SERVER_URL = "http://channelflow.duckdns.org"
+		const val PIN_SERVER_URL = "https://channelflow.duckdns.org"
 	}
 
 	private val json = Json { ignoreUnknownKeys = true }
@@ -90,26 +92,38 @@ class ChannelFlowPairClient {
 	}
 
 	private suspend fun waitOnLongPoll(onPin: (String) -> Unit): ChannelFlowConnection {
-		val request = Request.Builder()
+		val issue = Request.Builder()
 			.url("${pinServerUrl()}/v1/wait")
-			.header("Accept", "application/x-ndjson")
-			.get()
+			.post("{}".toRequestBody("application/json; charset=utf-8".toMediaType()))
 			.build()
-		http.newCall(request).execute().use { response ->
+		val issuedPin = http.newCall(issue).execute().use { response ->
 			if (!response.isSuccessful) {
 				error("Pin server returned HTTP ${response.code}")
 			}
-			val source = response.body?.source() ?: error("empty pin server body")
-			var pin: String? = null
-			while (!source.exhausted()) {
-				val line = source.readUtf8Line() ?: break
-				if (line.isBlank()) continue
-				val handled = handleMessage(line, onPin, { pin }) { pin = it }
-				if (handled != null) {
-					return handled.getOrThrow()
+			val obj = json.parseToJsonElement(response.body?.string().orEmpty()).jsonObject
+			obj["pin"]?.jsonPrimitive?.contentOrNull
+				?: error("pin server did not issue a pin")
+		}
+		val pin = ChannelFlowPinCrypto.normalize(issuedPin)
+		onPin(issuedPin)
+		while (true) {
+			val poll = Request.Builder()
+				.url("${pinServerUrl()}/v1/wait?pin=$pin")
+				.get()
+				.build()
+			val handled = http.newCall(poll).execute().use { response ->
+				if (response.code == 404) {
+					throw ChannelFlowPairException(ChannelFlowPairException.Kind.EXPIRED)
 				}
+				if (!response.isSuccessful) {
+					error("Pin server returned HTTP ${response.code}")
+				}
+				handleMessage(response.body?.string().orEmpty(), onPin, { pin }) {}
 			}
-			throw ChannelFlowPairException(ChannelFlowPairException.Kind.EXPIRED)
+			if (handled == null) {
+				continue
+			}
+			return handled.getOrThrow()
 		}
 	}
 

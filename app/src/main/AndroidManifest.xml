@@ -13,6 +13,7 @@
         android:name="android.permission.ACCESS_WIFI_STATE"
         tools:ignore="LeanbackUsesWifi" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Search permissions (voice to text) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -104,5 +105,13 @@
             android:windowSoftInputMode="adjustNothing" />
 
         <activity android:name=".ui.playback.ExternalPlayerActivity" />
+
+        <receiver
+            android:name=".channelflow.ChannelFlowUpdateInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.jellyfin.androidtv.channelflow.INSTALL_STATUS" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

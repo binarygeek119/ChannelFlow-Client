@@ -29,7 +29,6 @@ import org.jellyfin.playback.media3.session.MediaSessionOptions
 import org.jellyfin.playback.media3.session.media3SessionPlugin
 import org.jellyfin.sdk.api.client.HttpClientOptions
 import org.jellyfin.sdk.api.okhttp.OkHttpFactory
-import org.jellyfin.sdk.model.api.MediaSegmentType
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.scope.Scope
 import org.koin.dsl.module
@@ -42,7 +41,7 @@ val playbackModule = module {
 	single { VideoQueueManager() }
 	single<MediaManager> { RewriteMediaManager(get(), get()) }
 
-	single { PlaybackLauncher(get(), get(), get()) }
+	single { PlaybackLauncher(get(), get(), get(), get()) }
 
 	single<HttpDataSource.Factory> {
 		val okHttpFactory = get<OkHttpFactory>()
@@ -52,6 +51,7 @@ val playbackModule = module {
 		)
 
 		OkHttpDataSource.Factory(okHttpFactory.createClient(httpClientOptions))
+			.setUserAgent("ChannelFlow TV")
 	}
 
 	single { createPlaybackManager() }
@@ -99,7 +99,7 @@ fun Scope.createPlaybackManager() = playbackManager(androidContext()) {
 	install(media3SessionPlugin(get(), mediaSessionOptions))
 
 	val deviceProfileBuilder = { createDeviceProfile(androidContext(), userPreferences, get()) }
-	install(jellyfinPlugin(get(), deviceProfileBuilder, setOf(MediaSegmentType.INTRO), ProcessLifecycleOwner.get().lifecycle))
+	install(jellyfinPlugin(get(), deviceProfileBuilder, emptySet(), ProcessLifecycleOwner.get().lifecycle))
 
 	// Options
 	val userSettingPreferences = get<UserSettingPreferences>()

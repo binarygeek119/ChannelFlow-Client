@@ -1,7 +1,5 @@
 package org.jellyfin.androidtv.ui.settings.screen.playback
 
-import android.annotation.SuppressLint
-import android.widget.Toast
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -21,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.constant.getQualityProfiles
 import org.jellyfin.androidtv.preference.UserPreferences
-import org.jellyfin.androidtv.preference.UserSettingPreferences
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.form.Checkbox
 import org.jellyfin.androidtv.ui.base.form.RangeControl
@@ -32,16 +29,10 @@ import org.jellyfin.androidtv.ui.navigation.LocalRouter
 import org.jellyfin.androidtv.ui.navigation.focus.focusKey
 import org.jellyfin.androidtv.ui.settings.Routes
 import org.jellyfin.androidtv.ui.settings.compat.rememberPreference
-import org.jellyfin.androidtv.ui.settings.composable.SettingsAsyncActionListButton
 import org.jellyfin.androidtv.ui.settings.composable.SettingsColumn
-import org.jellyfin.androidtv.util.profile.createDeviceProfileReport
 import org.jellyfin.design.Tokens
-import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.clientLogApi
-import org.jellyfin.sdk.model.ServerVersion
 import org.koin.compose.koinInject
 import java.text.DecimalFormat
-import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 @Composable
@@ -49,7 +40,6 @@ fun SettingsPlaybackAdvancedScreen() {
 	val context = LocalContext.current
 	val router = LocalRouter.current
 	val userPreferences = koinInject<UserPreferences>()
-	val userSettingPreferences = koinInject<UserSettingPreferences>()
 
 	SettingsColumn {
 		item {
@@ -60,55 +50,6 @@ fun SettingsPlaybackAdvancedScreen() {
 		}
 
 		item { ListSection(headingContent = { Text(stringResource(R.string.pref_customization)) }) }
-
-		item {
-			var resumeSubtractDuration by rememberPreference(userPreferences, UserPreferences.resumeSubtractDuration)
-			val options = getResumeSubtractDurationOptions()
-
-			ListButton(
-				headingContent = { Text(stringResource(R.string.lbl_resume_preroll)) },
-				captionContent = { Text(options[resumeSubtractDuration].orEmpty()) },
-				onClick = { router.push(Routes.PLAYBACK_RESUME_SUBTRACT_DURATION) },
-				modifier = Modifier.focusKey(Routes.PLAYBACK_RESUME_SUBTRACT_DURATION)
-			)
-		}
-
-		item {
-			var skipForwardLength by rememberPreference(userSettingPreferences, UserSettingPreferences.skipForwardLength)
-			val interactionSource = remember { MutableInteractionSource() }
-
-			ListControl(
-				headingContent = { Text(stringResource(R.string.skip_forward_length)) },
-				interactionSource = interactionSource,
-				modifier = Modifier.focusKey("skip_forward_length")
-			) {
-				Row(
-					verticalAlignment = Alignment.CenterVertically,
-				) {
-					RangeControl(
-						modifier = Modifier
-							.height(4.dp)
-							.weight(1f),
-						interactionSource = interactionSource,
-						// 5 - 30 seconds with 5 second increment
-						min = 5_000f,
-						max = 30_000f,
-						stepForward = 5_000f,
-						value = skipForwardLength.toFloat(),
-						onValueChange = { skipForwardLength = it.roundToInt() }
-					)
-
-					Spacer(Modifier.width(Tokens.Space.spaceSm))
-
-					Box(
-						modifier = Modifier.sizeIn(minWidth = 32.dp),
-						contentAlignment = Alignment.CenterEnd
-					) {
-						Text("${skipForwardLength / 1000}s")
-					}
-				}
-			}
-		}
 
 		item {
 			var bufferLength by rememberPreference(userPreferences, UserPreferences.bufferLength)
@@ -242,19 +183,6 @@ fun SettingsPlaybackAdvancedScreen() {
 			)
 		}
 
-		item { ListSection(headingContent = { Text(stringResource(R.string.pref_live_tv_cat)) }) }
-
-		item {
-			var liveTvDirectPlayEnabled by rememberPreference(userPreferences, UserPreferences.liveTvDirectPlayEnabled)
-
-			ListButton(
-				headingContent = { Text(stringResource(R.string.lbl_direct_stream_live)) },
-				trailingContent = { Checkbox(checked = liveTvDirectPlayEnabled) },
-				onClick = { liveTvDirectPlayEnabled = !liveTvDirectPlayEnabled },
-				modifier = Modifier.focusKey("live_tv_direct_play_enabled")
-			)
-		}
-
 		item { ListSection(headingContent = { Text(stringResource(R.string.pref_audio)) }) }
 
 		item {
@@ -298,35 +226,6 @@ fun SettingsPlaybackAdvancedScreen() {
 				captionContent = { Text(stringResource(R.string.prefer_exoplayer_ffmpeg_content)) },
 				onClick = { preferExoPlayerFfmpeg = !preferExoPlayerFfmpeg },
 				modifier = Modifier.focusKey("prefer_exoplayer_ffmpeg")
-			)
-		}
-
-		item { ListSection(headingContent = { Text(stringResource(R.string.pref_troubleshooting)) }) }
-
-		item {
-			val api = koinInject<ApiClient>()
-			val serverVersion = koinInject<ServerVersion>()
-
-			SettingsAsyncActionListButton(
-				headingContent = { Text(stringResource(R.string.pref_report_device_profile_title)) },
-				captionContent = { Text(stringResource(R.string.pref_report_device_profile_summary)) },
-				action = {
-					val report = createDeviceProfileReport(context, userPreferences, serverVersion)
-					val response by api.clientLogApi.logFile(report)
-					response
-				},
-				onSuccess = { result ->
-					Toast.makeText(
-						context,
-						@SuppressLint("LocalContextGetResourceValueCall")
-						context.getString(R.string.pref_report_device_profile_success, result.fileName),
-						Toast.LENGTH_LONG
-					).show()
-				},
-				onFailure = {
-					Toast.makeText(context, R.string.pref_report_device_profile_failure, Toast.LENGTH_LONG).show()
-				},
-				modifier = Modifier.focusKey("report_device_profile")
 			)
 		}
 	}

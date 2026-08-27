@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/channelflow_page">
 
     <org.jellyfin.androidtv.ui.ObservableScrollView
         android:layout_width="160sp"
@@ -77,6 +78,7 @@
         android:layout_alignParentStart="true"
         android:background="@color/timeline_bg"
         android:gravity="center"
+        android:textColor="@color/channelflow_muted"
         android:textSize="14sp" />
 
     <org.jellyfin.androidtv.ui.ClockUserView
@@ -101,6 +103,7 @@
         android:layout_alignTop="@+id/programImage"
         android:layout_toEndOf="@+id/programImage"
         android:textSize="25sp"
+        android:textColor="@color/channelflow_text"
         android:layout_toStartOf="@+id/clock"
         android:layout_marginEnd="20sp"
         android:ellipsize="end"
@@ -122,6 +125,7 @@
         android:layout_height="wrap_content"
         android:id="@+id/summary"
         android:textSize="16sp"
+        android:textColor="@color/channelflow_muted"
         android:layout_marginEnd="20sp"
         android:layout_below="@+id/infoRow"
         android:layout_toEndOf="@+id/programImage"
@@ -142,7 +146,7 @@
         android:layout_marginBottom="2sp"
         android:layout_marginStart="2sp"
         android:textSize="12sp"
-        android:textColor="@color/grey_light"
+        android:textColor="@color/channelflow_muted"
         android:fontFamily="sans-serif-light" />
 
     <TextView
@@ -157,7 +161,7 @@
         android:layout_marginEnd="10sp"
         android:textStyle="bold"
         android:textSize="12sp"
-        android:textColor="@color/grey_light"
+        android:textColor="@color/channelflow_muted"
         android:fontFamily="sans-serif-light" />
 
     <ImageButton

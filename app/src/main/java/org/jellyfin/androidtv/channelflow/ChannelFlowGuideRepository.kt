@@ -1,13 +1,20 @@
 package org.jellyfin.androidtv.channelflow
 
+import android.net.Uri
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jellyfin.androidtv.preference.LiveTvPreferences
-import org.jellyfin.sdk.api.client.HttpClientOptions
-import org.jellyfin.sdk.api.okhttp.OkHttpFactory
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ChannelType
@@ -18,45 +25,40 @@ import org.jellyfin.sdk.model.api.UserItemDataDto
 import timber.log.Timber
 import java.time.LocalDateTime
 import java.util.UUID
+import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPInputStream
 
 class ChannelFlowGuideRepository(
 	private val store: ChannelFlowConnectionStore,
-	private val okHttpFactory: OkHttpFactory,
-	private val httpClientOptions: HttpClientOptions,
 	private val liveTvPreferences: LiveTvPreferences,
 ) {
+	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 	private val mutex = Mutex()
+	private val loadLock = Mutex()
+	private var loadJob: Job? = null
+	private val channelsReady = MutableStateFlow(false)
+	private val programsReady = MutableStateFlow(false)
 	private var channels: List<ChannelFlowChannel> = emptyList()
 	private var programs: List<ChannelFlowProgram> = emptyList()
 	private var loadedAt: Long = 0L
+	private val http = OkHttpClient.Builder()
+		.connectTimeout(30, TimeUnit.SECONDS)
+		.readTimeout(3, TimeUnit.MINUTES)
+		.writeTimeout(30, TimeUnit.SECONDS)
+		.followRedirects(true)
+		.followSslRedirects(true)
+		.build()
+
+	fun prefetchLatest() {
+		if (!store.isConnected) return
+		scope.launch {
+			runCatching { ensureLoadStarted(force = false).join() }
+				.onFailure { Timber.w(it, "Unable to refresh ChannelFlow guide") }
+		}
+	}
 
 	suspend fun refresh(force: Boolean = false) {
-		val connection = store.connection ?: run {
-			mutex.withLock {
-				channels = emptyList()
-				programs = emptyList()
-				loadedAt = 0L
-			}
-			return
-		}
-
-		mutex.withLock {
-			val stale = System.currentTimeMillis() - loadedAt > CACHE_TTL_MS
-			if (!force && !stale && channels.isNotEmpty()) return
-		}
-
-		val nextChannels = runCatching { fetchText(connection.m3uUrl).let(M3uParser::parse) }
-			.onFailure { Timber.w(it, "Unable to load ChannelFlow M3U") }
-			.getOrDefault(emptyList())
-		val nextPrograms = runCatching { fetchText(connection.epgUrl).let(XmltvParser::parse) }
-			.onFailure { Timber.w(it, "Unable to load ChannelFlow XMLTV") }
-			.getOrDefault(emptyList())
-
-		mutex.withLock {
-			channels = nextChannels
-			programs = nextPrograms
-			loadedAt = System.currentTimeMillis()
-		}
+		ensureLoadStarted(force).join()
 	}
 
 	fun getStreamUrl(itemId: UUID): String? {
@@ -65,30 +67,38 @@ class ChannelFlowGuideRepository(
 		return channels.firstOrNull { it.id == program.channelId }?.streamUrl
 	}
 
+	suspend fun awaitStreamUrl(itemId: UUID): String? {
+		awaitChannels()
+		return mutex.withLock { getStreamUrl(itemId) }
+	}
+
 	fun getLogoUrl(itemId: UUID): String? {
 		channels.firstOrNull { it.id == itemId }?.logoUrl?.let { return it }
 		return programs.firstOrNull { it.id == itemId }?.iconUrl
 	}
 
 	suspend fun getChannels(): List<BaseItemDto> {
-		refresh()
+		awaitChannels()
+		awaitPrograms()
 		val now = LocalDateTime.now()
 		val favsAtTop = liveTvPreferences[LiveTvPreferences.favsAtTop]
 		return mutex.withLock {
 			channels
+				.filter { it.hasPlayableStream() }
 				.map { it.toBaseItem(now) }
 				.sortedWith(
 					compareByDescending<BaseItemDto> { favsAtTop && it.userData?.isFavorite == true }
-						.thenBy { channelSortKey(it.number) }
+						.thenBy { ChannelNumber.parse(it.number) ?: ChannelNumber(Int.MAX_VALUE, 0) }
 						.thenBy { it.name.orEmpty() }
 				)
 		}
 	}
 
 	suspend fun getChannel(id: UUID): BaseItemDto? {
-		refresh()
+		awaitChannels()
+		awaitPrograms()
 		return mutex.withLock {
-			channels.firstOrNull { it.id == id }?.toBaseItem(LocalDateTime.now())
+			channels.firstOrNull { it.id == id && it.hasPlayableStream() }?.toBaseItem(LocalDateTime.now())
 		}
 	}
 
@@ -97,27 +107,119 @@ class ChannelFlowGuideRepository(
 		startTime: LocalDateTime,
 		endTime: LocalDateTime,
 	): List<BaseItemDto> {
-		refresh()
-		val ids = channelIds.toSet()
+		awaitPrograms()
+		val ids = channelIds.filterNotNull().toSet()
+		if (ids.isEmpty()) return emptyList()
 		return mutex.withLock {
-			programs
+			val matched = programs
 				.filter { it.channelId in ids && it.start < endTime && it.end > startTime }
 				.sortedBy { it.start }
-				.map { it.toBaseItem() }
+			Timber.d("XMLTV matched ${matched.size} of ${programs.size} programmes for ${ids.size} channels")
+			matched.map { it.toBaseItem() }
 		}
 	}
 
 	suspend fun getProgram(id: UUID): BaseItemDto? {
-		refresh()
+		awaitPrograms()
 		return mutex.withLock {
 			programs.firstOrNull { it.id == id }?.toBaseItem()
 		}
 	}
 
 	fun clear() {
+		loadJob?.cancel()
+		loadJob = null
 		channels = emptyList()
 		programs = emptyList()
 		loadedAt = 0L
+		channelsReady.value = false
+		programsReady.value = false
+	}
+
+	private suspend fun awaitChannels() {
+		if (store.connection == null) {
+			clear()
+			return
+		}
+		ensureLoadStarted()
+		channelsReady.first { it }
+	}
+
+	private suspend fun awaitPrograms() {
+		if (store.connection == null) {
+			clear()
+			return
+		}
+		ensureLoadStarted()
+		programsReady.first { it }
+	}
+
+	private suspend fun ensureLoadStarted(force: Boolean = false): Job {
+		val connection = store.connection ?: run {
+			clear()
+			return completedJob()
+		}
+
+		if (!force && isFresh()) {
+			if (!channelsReady.value) channelsReady.value = true
+			if (!programsReady.value) programsReady.value = true
+			return loadJob?.takeIf { it.isActive } ?: completedJob()
+		}
+
+		return loadLock.withLock {
+			if (!force && isFresh()) {
+				return@withLock loadJob?.takeIf { it.isActive } ?: completedJob()
+			}
+			if (force) loadJob?.cancel()
+			loadJob?.takeIf { it.isActive } ?: startLoad(connection)
+		}
+	}
+
+	private fun startLoad(connection: ChannelFlowConnection): Job {
+		channelsReady.value = false
+		programsReady.value = false
+		return scope.launch {
+			load(connection)
+		}.also { loadJob = it }
+	}
+
+	private suspend fun load(connection: ChannelFlowConnection) {
+		supervisorScope {
+			launch {
+				try {
+					val nextChannels = runCatching { M3uParser.parse(fetchText(connection, connection.m3uUrl)) }
+						.onFailure { Timber.w(it, "Unable to load ChannelFlow M3U") }
+						.getOrDefault(emptyList())
+					mutex.withLock { channels = nextChannels }
+					Timber.i("Loaded ${nextChannels.size} ChannelFlow channels")
+				} finally {
+					channelsReady.value = true
+				}
+			}
+			launch {
+				try {
+					val nextPrograms = runCatching { XmltvParser.parse(fetchText(connection, connection.epgUrl)) }
+						.onFailure { Timber.w(it, "Unable to load ChannelFlow XMLTV") }
+						.getOrNull()
+					if (nextPrograms != null) {
+						mutex.withLock {
+							programs = nextPrograms
+							loadedAt = System.currentTimeMillis()
+						}
+						Timber.i("Loaded ${nextPrograms.size} ChannelFlow XMLTV programmes")
+					} else {
+						Timber.w("ChannelFlow XMLTV fetch/parse failed; guide listings not updated")
+					}
+				} finally {
+					programsReady.value = true
+				}
+			}
+		}
+	}
+
+	private fun isFresh(): Boolean {
+		val stale = System.currentTimeMillis() - loadedAt > CACHE_TTL_MS
+		return !stale && channels.isNotEmpty() && programsReady.value && loadedAt > 0L
 	}
 
 	private fun ChannelFlowChannel.toBaseItem(now: LocalDateTime): BaseItemDto {
@@ -129,7 +231,7 @@ class ChannelFlowGuideRepository(
 			type = BaseItemKind.TV_CHANNEL,
 			mediaType = MediaType.VIDEO,
 			channelType = ChannelType.TV,
-			locationType = LocationType.VIRTUAL,
+			locationType = LocationType.REMOTE,
 			imageTags = logoUrl?.let { mapOf(ImageType.PRIMARY to it, ImageType.LOGO to it) },
 			primaryImageAspectRatio = 1.0,
 			currentProgram = current?.toBaseItem(),
@@ -146,6 +248,8 @@ class ChannelFlowGuideRepository(
 		mediaType = MediaType.VIDEO,
 		channelId = channelId,
 		parentId = channelId,
+		channelName = channels.firstOrNull { it.id == channelId }?.name,
+		channelNumber = channels.firstOrNull { it.id == channelId }?.number,
 		startDate = start,
 		endDate = end,
 		premiereDate = start,
@@ -165,27 +269,41 @@ class ChannelFlowGuideRepository(
 		itemId = channelId,
 	)
 
-	private suspend fun fetchText(url: String): String = withContext(Dispatchers.IO) {
+	private suspend fun fetchText(connection: ChannelFlowConnection, url: String): String = withContext(Dispatchers.IO) {
 		val request = Request.Builder()
-			.url(url)
-			.header("Accept", "*/*")
+			.url(withApiKey(url, connection.apiKey))
+			.header("Accept", "application/xml, text/xml, audio/x-mpegurl, */*")
+			.header("Accept-Encoding", "gzip")
+			.apply {
+				if (connection.apiKey.isNotBlank()) header("X-Api-Key", connection.apiKey)
+			}
 			.get()
 			.build()
-		okHttpFactory.createClient(httpClientOptions).newCall(request).execute().use { response ->
-			if (!response.isSuccessful) error("HTTP ${response.code} for $url")
-			response.body?.string().orEmpty()
+		http.newCall(request).execute().use { response ->
+			if (!response.isSuccessful) error("HTTP ${response.code} for ${redact(url)}")
+			val bytes = response.body?.bytes() ?: ByteArray(0)
+			decodeBody(bytes)
 		}
 	}
 
-	private fun channelSortKey(number: String?): String {
-		if (number.isNullOrBlank()) return "~"
-		val parts = number.split('.', '-', ' ')
-		val major = parts.getOrNull(0)?.padStart(6, '0') ?: "000000"
-		val minor = parts.getOrNull(1)?.padStart(4, '0') ?: "0000"
-		return "$major.$minor"
+	private fun decodeBody(bytes: ByteArray): String {
+		if (bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()) {
+			return GZIPInputStream(bytes.inputStream()).bufferedReader(Charsets.UTF_8).use { it.readText() }
+		}
+		return bytes.toString(Charsets.UTF_8)
 	}
 
 	companion object {
 		private const val CACHE_TTL_MS = 2 * 60 * 1000L
+
+		private fun completedJob(): Job = Job().apply { complete() }
+
+		private fun withApiKey(url: String, apiKey: String): String {
+			if (apiKey.isBlank() || url.contains("apiKey=", ignoreCase = true)) return url
+			val uri = Uri.parse(url).buildUpon().appendQueryParameter("apiKey", apiKey).build()
+			return uri.toString()
+		}
+
+		private fun redact(url: String): String = url.replace(Regex("apiKey=[^&]*", RegexOption.IGNORE_CASE), "apiKey=***")
 	}
 }

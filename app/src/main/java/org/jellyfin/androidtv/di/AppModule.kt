@@ -30,6 +30,8 @@ import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
 import org.jellyfin.androidtv.channelflow.ChannelFlowConnectionStore
 import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
 import org.jellyfin.androidtv.channelflow.ChannelFlowPairClient
+import org.jellyfin.androidtv.channelflow.ChannelFlowReminderScheduler
+import org.jellyfin.androidtv.channelflow.ChannelFlowUpdateChecker
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
 import org.jellyfin.androidtv.ui.livetv.LiveTvStartup
 import org.jellyfin.androidtv.ui.navigation.Destinations
@@ -42,8 +44,6 @@ import org.jellyfin.androidtv.ui.playback.external.MpvExternalPlayerApi
 import org.jellyfin.androidtv.ui.playback.external.MxExternalPlayerApi
 import org.jellyfin.androidtv.ui.playback.external.VimuExternalPlayerApi
 import org.jellyfin.androidtv.ui.playback.external.VlcExternalPlayerApi
-import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentRepository
-import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentRepositoryImpl
 import org.jellyfin.androidtv.ui.settings.compat.SettingsViewModel
 import org.jellyfin.androidtv.util.AndroidVersion
 import org.jellyfin.androidtv.util.KeyProcessor
@@ -134,7 +134,9 @@ val appModule = module {
 
 	single { ChannelFlowConnectionStore(androidContext()) }
 	single { ChannelFlowPairClient() }
-	single { ChannelFlowGuideRepository(get(), get(), get(), get()) }
+	single { ChannelFlowGuideRepository(get(), get()) }
+	single { ChannelFlowUpdateChecker(androidContext()) }
+	single { ChannelFlowReminderScheduler(androidContext()) }
 
 	single<UserRepository> { UserRepositoryImpl() }
 	single<UserViewsRepository> { UserViewsRepositoryImpl(get()) }
@@ -142,8 +144,7 @@ val appModule = module {
 	single<ItemMutationRepository> { ItemMutationRepositoryImpl(get(), get(), get()) }
 	single<CustomMessageRepository> { CustomMessageRepositoryImpl() }
 	single<NavigationRepository> { NavigationRepositoryImpl(Destinations.liveTvGuide) }
-	single { LiveTvStartup(get(), get()) }
-	single<MediaSegmentRepository> { MediaSegmentRepositoryImpl(get(), get()) }
+	single { LiveTvStartup(get()) }
 	single<ExternalAppRepository> { ExternalAppRepository(get(), getAll(), get<DefaultExternalPlayerApi>()) }
 
 	// External player APIs

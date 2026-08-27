@@ -32,9 +32,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.Text
-import org.jellyfin.androidtv.ui.playback.segment.MediaSegmentRepository
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun SkipOverlayComposable(
@@ -114,7 +114,7 @@ class SkipOverlayView @JvmOverloads constructor(
 			val targetPosition = _targetPosition.value
 			val currentPosition = _currentPosition.value
 
-			return enabled && targetPosition != null && currentPosition <= (targetPosition - MediaSegmentRepository.SkipMinDuration)
+			return enabled && targetPosition != null && currentPosition <= (targetPosition - 1.seconds)
 		}
 
 	@Composable
@@ -129,7 +129,7 @@ class SkipOverlayView @JvmOverloads constructor(
 
 		// Auto hide
 		LaunchedEffect(skipUiEnabled, targetPosition) {
-			delay(MediaSegmentRepository.AskToSkipAutoHideDuration)
+			delay(8.seconds)
 			_targetPosition.value = null
 		}
 

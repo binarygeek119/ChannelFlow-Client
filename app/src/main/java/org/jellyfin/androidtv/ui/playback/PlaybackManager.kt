@@ -2,66 +2,23 @@ package org.jellyfin.androidtv.ui.playback
 
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withStarted
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
-import org.jellyfin.androidtv.data.compat.PlaybackException
+import org.jellyfin.androidtv.channelflow.ChannelFlowStream
 import org.jellyfin.androidtv.data.compat.StreamInfo
 import org.jellyfin.androidtv.data.compat.VideoOptions
 import org.jellyfin.androidtv.util.apiclient.Response
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.hlsSegmentApi
-import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
-import org.jellyfin.sdk.api.client.extensions.videosApi
 import org.jellyfin.sdk.model.api.MediaProtocol
 import org.jellyfin.sdk.model.api.MediaSourceInfo
 import org.jellyfin.sdk.model.api.MediaSourceType
 import org.jellyfin.sdk.model.api.MediaStreamProtocol
 import org.jellyfin.sdk.model.api.PlayMethod
-import org.jellyfin.sdk.model.api.PlaybackInfoDto
-import org.jellyfin.sdk.model.api.PlaybackInfoResponse
-
-private fun createStreamInfo(
-	api: ApiClient,
-	options: VideoOptions,
-	response: PlaybackInfoResponse,
-): StreamInfo = StreamInfo().apply {
-	val source = response.mediaSources.firstOrNull {
-		options.mediaSourceId != null && it.id == options.mediaSourceId
-	} ?: response.mediaSources.firstOrNull()
-
-	itemId = options.itemId
-	mediaSource = source
-	runTimeTicks = source?.runTimeTicks
-	playSessionId = response.playSessionId
-
-	if (source == null) return@apply
-
-	if (options.enableDirectPlay && source.supportsDirectPlay) {
-		playMethod = PlayMethod.DIRECT_PLAY
-		container = source.container
-		mediaUrl = when {
-			source.isRemote && source.path != null -> source.path
-			else -> api.videosApi.getVideoStreamUrl(
-				itemId = itemId,
-				container = container,
-				mediaSourceId = source.id,
-				static = true,
-				tag = source.eTag,
-				liveStreamId = source.liveStreamId,
-			)
-		}
-	} else if (options.enableDirectStream && source.supportsDirectStream) {
-		playMethod = PlayMethod.DIRECT_STREAM
-		container = source.transcodingContainer
-		mediaUrl = api.createUrl(requireNotNull(source.transcodingUrl), ignorePathParameters = true)
-	} else if (source.supportsTranscoding) {
-		playMethod = PlayMethod.TRANSCODE
-		container = source.transcodingContainer
-		mediaUrl = api.createUrl(requireNotNull(source.transcodingUrl), ignorePathParameters = true)
-	}
-}
+import timber.log.Timber
 
 class PlaybackManager(
 	private val api: ApiClient,
@@ -73,10 +30,13 @@ class PlaybackManager(
 		startTimeTicks: Long,
 		callback: Response<StreamInfo>,
 	) = lifecycleOwner.lifecycleScope.launch {
-		getVideoStreamInfoInternal(options, startTimeTicks).fold(
-			onSuccess = { callback.onResponse(it) },
-			onFailure = { callback.onError(Exception(it)) },
-		)
+		val result = getVideoStreamInfoInternal(options)
+		lifecycleOwner.withStarted {
+			result.fold(
+				onSuccess = { callback.onResponse(it) },
+				onFailure = { callback.onError(Exception(it)) },
+			)
+		}
 	}
 
 	fun changeVideoStream(
@@ -92,75 +52,59 @@ class PlaybackManager(
 			}
 		}
 
-		getVideoStreamInfoInternal(options, startTimeTicks).fold(
-			onSuccess = { callback.onResponse(it) },
-			onFailure = { callback.onError(Exception(it)) },
-		)
+		val result = getVideoStreamInfoInternal(options)
+		lifecycleOwner.withStarted {
+			result.fold(
+				onSuccess = { callback.onResponse(it) },
+				onFailure = { callback.onError(Exception(it)) },
+			)
+		}
 	}
 
 	private suspend fun getVideoStreamInfoInternal(
 		options: VideoOptions,
-		startTimeTicks: Long
 	) = runCatching {
 		val itemId = requireNotNull(options.itemId) { "Item id cannot be null" }
-		val streamUrl = catalog.getStreamUrl(itemId)
-		if (streamUrl != null) {
-			return@runCatching StreamInfo().apply {
-				this.itemId = itemId
-				playMethod = PlayMethod.DIRECT_PLAY
-				container = "ts"
-				mediaUrl = streamUrl
-				mediaSource = MediaSourceInfo(
-					protocol = MediaProtocol.HTTP,
-					id = itemId.toString(),
-					path = streamUrl,
-					type = MediaSourceType.DEFAULT,
-					container = "ts",
-					isRemote = true,
-					readAtNativeFramerate = false,
-					ignoreDts = true,
-					ignoreIndex = false,
-					genPtsInput = false,
-					supportsTranscoding = false,
-					supportsDirectStream = false,
-					supportsDirectPlay = true,
-					isInfiniteStream = true,
-					requiresOpening = false,
-					requiresClosing = false,
-					requiresLooping = false,
-					supportsProbing = false,
-					transcodingSubProtocol = MediaStreamProtocol.HTTP,
-					hasSegments = false,
-				)
-			}
-		}
+		val streamUrl = catalog.awaitStreamUrl(itemId)
+			?: error("No playable stream for $itemId")
+		Timber.i(
+			"Resolved ChannelFlow stream item=%s mime=%s live=%s url=%s",
+			itemId,
+			ChannelFlowStream.mimeType(streamUrl),
+			ChannelFlowStream.isLive(streamUrl),
+			ChannelFlowStream.redact(streamUrl),
+		)
+		val container = ChannelFlowStream.container(streamUrl)
+		val live = ChannelFlowStream.isLive(streamUrl)
 
-		val response = withContext(Dispatchers.IO) {
-			api.mediaInfoApi.getPostedPlaybackInfo(
-				itemId = requireNotNull(options.itemId) { "Item id cannot be null" },
-				data = PlaybackInfoDto(
-					mediaSourceId = options.mediaSourceId,
-					startTimeTicks = startTimeTicks,
-					deviceProfile = options.profile,
-					enableDirectStream = options.enableDirectStream,
-					enableDirectPlay = options.enableDirectPlay,
-					maxAudioChannels = options.maxAudioChannels,
-					audioStreamIndex = options.audioStreamIndex.takeIf { it != null && it >= 0 },
-					subtitleStreamIndex = options.subtitleStreamIndex,
-					allowVideoStreamCopy = true,
-					allowAudioStreamCopy = true,
-					autoOpenLiveStream = true,
-					alwaysBurnInSubtitleWhenTranscoding = options.alwaysBurnInSubtitleWhenTranscoding,
-				)
-			).content
+		StreamInfo().apply {
+			this.itemId = itemId
+			playMethod = PlayMethod.DIRECT_PLAY
+			this.container = container
+			mediaUrl = streamUrl
+			mediaSource = MediaSourceInfo(
+				protocol = if (streamUrl.startsWith("http", ignoreCase = true)) MediaProtocol.HTTP else MediaProtocol.FILE,
+				id = itemId.toString(),
+				path = streamUrl,
+				type = MediaSourceType.DEFAULT,
+				container = container,
+				isRemote = true,
+				readAtNativeFramerate = false,
+				ignoreDts = true,
+				ignoreIndex = false,
+				genPtsInput = false,
+				supportsTranscoding = false,
+				supportsDirectStream = false,
+				supportsDirectPlay = true,
+				isInfiniteStream = live,
+				requiresOpening = false,
+				requiresClosing = false,
+				requiresLooping = false,
+				supportsProbing = false,
+				transcodingSubProtocol = if (ChannelFlowStream.isHls(streamUrl)) MediaStreamProtocol.HLS else MediaStreamProtocol.HTTP,
+				hasSegments = ChannelFlowStream.isHls(streamUrl),
+				mediaStreams = emptyList(),
+			)
 		}
-
-		if (response.errorCode != null) {
-			throw PlaybackException().apply {
-				errorCode = response.errorCode!!
-			}
-		}
-
-		createStreamInfo(api, options, response)
 	}
 }

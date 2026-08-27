@@ -4,6 +4,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
+import org.jellyfin.androidtv.channelflow.ChannelNumber
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.koin.android.ext.android.inject
 import java.time.LocalDate
@@ -56,4 +57,23 @@ fun getScheduleRows(
 	callback: (timers: Map<LocalDate, List<BaseItemDto>>?) -> Unit,
 ) {
 	callback(emptyMap())
+}
+
+fun adjacentChannelByNumber(
+	channels: Collection<BaseItemDto>?,
+	currentId: UUID?,
+	higher: Boolean,
+): BaseItemDto? {
+	val sorted = channels.orEmpty().sortedWith(
+		compareBy<BaseItemDto> { ChannelNumber.parse(it.number) ?: ChannelNumber(Int.MAX_VALUE, 0) }
+			.thenBy { it.name.orEmpty() }
+	)
+	if (sorted.isEmpty()) return null
+	val index = currentId?.let { id -> sorted.indexOfFirst { it.id == id } } ?: -1
+	val nextIndex = when {
+		index < 0 -> if (higher) 0 else sorted.lastIndex
+		higher -> (index + 1) % sorted.size
+		else -> (index - 1 + sorted.size) % sorted.size
+	}
+	return sorted[nextIndex]
 }

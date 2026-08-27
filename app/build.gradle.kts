@@ -15,7 +15,7 @@ android {
 
 		// Release version
 		applicationId = namespace
-		versionName = project.getVersionName()
+		versionName = project.getVersionName("0.0.1")
 		versionCode = getVersionCode(versionName!!)
 	}
 
@@ -67,7 +67,7 @@ android {
 
 			buildConfigField("boolean", "DEVELOPMENT", "false")
 
-			signingConfig = signingConfigs.findByName("release")
+			signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
 		}
 
 		debug {
@@ -98,7 +98,7 @@ android {
 	}
 }
 
-base.archivesName.set("jellyfin-androidtv-v${project.getVersionName()}")
+base.archivesName.set("ChannelFlow-TV-v${project.getVersionName()}")
 
 tasks.register("versionTxt") {
 	val path = layout.buildDirectory.asFile.get().resolve("version.txt")

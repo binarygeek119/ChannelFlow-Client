@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/popup_menu_back"
+    android:orientation="vertical"
+    android:padding="28dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="top"
+        android:orientation="horizontal">
+
+        <org.jellyfin.androidtv.ui.AsyncImageView
+            android:id="@+id/programImage"
+            android:layout_width="280dp"
+            android:layout_height="158dp"
+            android:layout_marginEnd="24dp"
+            android:background="@color/channelflow_card"
+            android:scaleType="centerCrop" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:background="@color/channelflow_accent"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="3dp"
+                android:textAllCaps="true"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                tools:text="Upcoming" />
+
+            <TextView
+                android:id="@+id/title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-light"
+                android:maxLines="2"
+                android:textColor="@color/channelflow_text"
+                android:textSize="28sp"
+                tools:text="Program title" />
+
+            <TextView
+                android:id="@+id/episodeTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textColor="@color/channelflow_accent_hover"
+                android:textSize="18sp"
+                android:visibility="gone"
+                tools:text="Episode title"
+                tools:visibility="visible" />
+
+            <TextView
+                android:id="@+id/channel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/channelflow_text"
+                android:textSize="16sp"
+                tools:text="12.1  Channel Name" />
+
+            <TextView
+                android:id="@+id/schedule"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/channelflow_muted"
+                android:textSize="16sp"
+                tools:text="Today  8:00 PM–9:00 PM  ·  1:00" />
+
+            <LinearLayout
+                android:id="@+id/infoRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/overviewScroller"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="20dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:focusable="false">
+
+        <TextView
+            android:id="@+id/overview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-light"
+            android:lineSpacingMultiplier="1.15"
+            android:textColor="@color/channelflow_text"
+            android:textSize="16sp"
+            tools:text="Full program description." />
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/remindButton"
+            style="@style/Button.Default"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            android:text="@string/lbl_remind_me" />
+
+        <Button
+            android:id="@+id/closeButton"
+            style="@style/Button.Default"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/lbl_close" />
+    </LinearLayout>
+</LinearLayout>

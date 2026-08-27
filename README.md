@@ -1,77 +1,78 @@
-<h1 align="center">Jellyfin for Android TV</h1>
-<h3 align="center">Part of the <a href="https://jellyfin.org">Jellyfin Project</a></h3>
+<h1 align="center">ChannelFlow TV</h1>
+<h3 align="center">Android TV client for <a href="https://github.com/binarygeek119/ChannelFlow">ChannelFlow</a></h3>
 
 ---
 
 <p align="center">
-<img alt="Logo banner" src="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/branding/SVG/banner-logo-solid.svg?sanitize=true"/>
+<img alt="ChannelFlow TV" src="logo.png" width="220"/>
 <br/><br/>
-<a href="https://github.com/jellyfin/jellyfin-androidtv">
-<img alt="GPL 2.0 License" src="https://img.shields.io/github/license/jellyfin/jellyfin-androidtv.svg"/>
+<a href="LICENSE">
+<img alt="GPL 2.0 License" src="https://img.shields.io/github/license/binarygeek119/ChannelFlow-Client.svg"/>
 </a>
-<a href="https://github.com/jellyfin/jellyfin-androidtv/releases">
-<img alt="Current Release" src="https://img.shields.io/github/release/jellyfin/jellyfin-androidtv.svg"/>
-</a>
-<a href="https://translate.jellyfin.org/projects/jellyfin-android/jellyfin-androidtv/">
-<img alt="Translation Status" src="https://translate.jellyfin.org/widgets/jellyfin-android/-/jellyfin-androidtv/svg-badge.svg"/>
+<a href="https://github.com/binarygeek119/ChannelFlow-Client/releases">
+<img alt="Current Release" src="https://img.shields.io/github/v/release/binarygeek119/ChannelFlow-Client.svg"/>
 </a>
 <br/>
-<a href="https://opencollective.com/jellyfin">
-<img alt="Donate" src="https://img.shields.io/opencollective/all/jellyfin.svg?label=backers"/>
-</a>
-<a href="https://features.jellyfin.org">
-<img alt="Feature Requests" src="https://img.shields.io/badge/fider-vote%20on%20features-success.svg"/>
-</a>
-<a href="https://matrix.to/#/+jellyfin:matrix.org">
-<img alt="Chat on Matrix" src="https://img.shields.io/matrix/jellyfin:matrix.org.svg?logo=matrix"/>
-</a>
-<br/>
-<a href="https://play.google.com/store/apps/details?id=org.jellyfin.androidtv">
-<img width="153" alt="Jellyfin on Google Play" src="https://jellyfin.org/images/store-icons/google-play.png"/>
-</a>
-<a href="https://www.amazon.com/gp/aw/d/B07TX7Z725">
-<img width="153" alt="Jellyfin on Amazon Appstore" src="https://jellyfin.org/images/store-icons/amazon.png"/>
-</a>
-<a href="https://f-droid.org/en/packages/org.jellyfin.androidtv/">
-<img width="153" alt="Jellyfin on F-Droid" src="https://jellyfin.org/images/store-icons/fdroid.png"/>
-</a>
-<br/>
-<a href="https://repo.jellyfin.org/releases/client/androidtv/">Download archive</a>
+<a href="https://github.com/binarygeek119/ChannelFlow-Client/releases">Download the latest APK</a>
 </p>
 
-Jellyfin for Android TV is a Jellyfin client for Android TV, Nvidia Shield, and Amazon Fire TV devices. We welcome all contributions and pull
-requests! If you have a larger feature in mind please open an issue so we can discuss the implementation before you start. 
+ChannelFlow TV is a Leanback Android TV app for watching live IPTV from a [ChannelFlow](https://github.com/binarygeek119/ChannelFlow) server. It opens to the live guide, plays M3U streams, and pairs with a server using a quick pin. There is no Jellyfin login and no DVR.
+
+It is a fork of [Jellyfin for Android TV](https://github.com/jellyfin/jellyfin-androidtv), cut down to live TV and the guide.
+
+Author: [binarygeek119](https://github.com/binarygeek119)
+
+## Features
+
+- Live TV guide loaded from the ChannelFlow M3U playlist and XMLTV listings
+- Direct playback of live MPEG-TS streams
+- Quick pin pairing (no server URL to type on the TV)
+- Multiple saved servers, with switch / add / remove in settings
+- Channel up/down by number, including decimals such as `119.1`
+- Program details for listings that are not on now
+- Reminders for upcoming programs, with a watch-now prompt when they start
+- In-app updates from GitHub Releases
+
+## Pairing
+
+1. Install ChannelFlow TV on an Android TV, Fire TV, or Android TV emulator.
+2. On the TV, open the app and note the pin shown on screen.
+3. In ChannelFlow, open **Quick Pin** and enter that code.
+4. The TV saves the server and opens the guide.
+
+The pin relay is `https://channelflow.duckdns.org` and is not user-configurable. Pins last 10 minutes.
 
 ## Building
 
-The app uses Gradle and requires the Android SDK. We recommend using Android Studio, which includes all required dependencies, for
-development and building. For manual building without Android Studio make sure a compatible JDK and Android SDK are installed and in your
-PATH, then use the Gradle wrapper (`./gradlew`) to build the project with the `assembleDebug` Gradle task to generate an apk file:
+The app uses Gradle and needs the Android SDK. Android Studio includes the required tooling. For a command-line debug build, use JDK 21 and the Gradle wrapper:
 
 ```shell
 ./gradlew assembleDebug
 ```
 
-The task will create an APK file in the `/app/build/outputs/apk/debug` directory. This APK file uses a different app-id from our stable
-builds and can be manually installed to your device.
+The debug APK is written to `app/build/outputs/apk/debug/` as `ChannelFlow-TV-v<version>-debug.apk`. Debug builds use a `.debug` application id, so they can sit next to a release install.
 
-## Branching
+A local release APK (minified, signed with the debug key unless a keystore is configured):
 
-The `master` branch is the primary development branch and the target for all pull requests. It is **unstable** and may contain breaking
-changes or unresolved bugs. For production deployments and forks, always use the latest `release-x.y.z` branch. Do not base production work
-or long-lived forks on `master`.
+```shell
+CHANNELFLOW_VERSION=0.0.1 ./gradlew assembleRelease
+```
 
-Release branches are created at the start of a beta cycle and are kept up to date with each published release. Maintainers will cherry-pick
-selected changes into release branches as needed for backports. These branches are reused for subsequent patch releases.
+The release APK is written to `app/build/outputs/apk/release/` as `ChannelFlow-TV-v0.0.1-release.apk`.
 
-## Translating
+## Releases
 
-Translations can be improved very easily from our [Weblate](https://translate.jellyfin.org/projects/jellyfin-android/jellyfin-androidtv)
-instance. Look through the following graphic to see if your native language could use some work! We cannot accept changes to translation
-files via pull requests.
+Pushing a `v*` tag (or running **App / Release APK** from GitHub Actions) builds the release APK and attaches `ChannelFlow-TV-vX.Y.Z-release.apk` to the GitHub Release. The app checks that release on startup and from **Settings → About**, and can download and install it as an update.
 
-<p align="center">
-<a href="https://translate.jellyfin.org/engage/jellyfin-android/">
-<img alt="Detailed Translation Status" src="https://translate.jellyfin.org/widgets/jellyfin-android/-/jellyfin-androidtv/multi-auto.svg"/>
-</a>
-</p>
+```shell
+git tag v0.0.2
+git push origin v0.0.2
+```
+
+Optional repository secrets for a production signing key: `KEYSTORE` (base64 of the `.jks` file), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Without them, CI signs the APK with the debug key.
+
+Sideload the **release** APK once so later GitHub updates can install over it. Debug and release installs do not update each other.
+
+## License
+
+ChannelFlow TV is licensed under the [GNU General Public License v2.0](LICENSE), the same license as Jellyfin for Android TV, which this project is based on.

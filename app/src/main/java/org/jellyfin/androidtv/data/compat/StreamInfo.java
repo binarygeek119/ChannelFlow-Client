@@ -71,8 +71,12 @@ public class StreamInfo {
     }
 
     public final org.jellyfin.sdk.model.api.SubtitleDeliveryMethod getSubtitleDeliveryMethod() {
+        if (MediaSource == null) return SubtitleDeliveryMethod.DROP;
         Integer subtitleStreamIndex = MediaSource.getDefaultSubtitleStreamIndex();
         if (subtitleStreamIndex == null || subtitleStreamIndex == -1) return SubtitleDeliveryMethod.DROP;
+        if (MediaSource.getMediaStreams() == null || subtitleStreamIndex >= MediaSource.getMediaStreams().size()) {
+            return SubtitleDeliveryMethod.DROP;
+        }
         return MediaSource.getMediaStreams().get(subtitleStreamIndex).getDeliveryMethod();
     }
 
@@ -97,6 +101,7 @@ public class StreamInfo {
     public final ArrayList<org.jellyfin.sdk.model.api.MediaStream> getSelectableStreams(MediaStreamType type) {
         ArrayList<org.jellyfin.sdk.model.api.MediaStream> list = new ArrayList<org.jellyfin.sdk.model.api.MediaStream>();
 
+        if (getMediaSource() == null || getMediaSource().getMediaStreams() == null) return list;
         for (org.jellyfin.sdk.model.api.MediaStream stream : getMediaSource().getMediaStreams()) {
             if (type == stream.getType()) {
                 list.add(stream);

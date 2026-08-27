@@ -44,13 +44,19 @@ public class GuideChannelHeader extends RelativeLayout {
         ));
         this.addView(v);
         this.setFocusable(true);
-        ((TextView) findViewById(R.id.channelName)).setText(channel.getName());
-        ((TextView) findViewById(R.id.channelNumber)).setText(channel.getNumber());
+        TextView name = findViewById(R.id.channelName);
+        TextView number = findViewById(R.id.channelNumber);
+        name.setText(channel.getName());
+        name.setTextColor(ContextCompat.getColor(context, R.color.channelflow_text));
+        number.setText(channel.getNumber());
+        number.setTextColor(ContextCompat.getColor(context, R.color.channelflow_accent));
+        number.setTypeface(number.getTypeface(), android.graphics.Typeface.BOLD);
         mChannelImage = findViewById(R.id.channelImage);
         mFavImage = findViewById(R.id.favImage);
 
         if (mChannel.getUserData() != null && mChannel.getUserData().isFavorite())
             mFavImage.setVisibility(View.VISIBLE);
+        setBackground(org.jellyfin.androidtv.channelflow.ChannelFlowGuideChrome.INSTANCE.channelBackground(context, false));
     }
 
     public void loadImage() {
@@ -79,11 +85,10 @@ public class GuideChannelHeader extends RelativeLayout {
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
 
         if (gainFocus) {
-            setBackgroundColor(Utils.getThemeColor(mContext, android.R.attr.colorAccent));
-
+            setBackground(org.jellyfin.androidtv.channelflow.ChannelFlowGuideChrome.INSTANCE.channelBackground(mContext, true));
             mTvGuide.setSelectedProgram(this);
         } else {
-            setBackground(ContextCompat.getDrawable(mContext, R.drawable.light_border));
+            setBackground(org.jellyfin.androidtv.channelflow.ChannelFlowGuideChrome.INSTANCE.channelBackground(mContext, false));
         }
     }
 }

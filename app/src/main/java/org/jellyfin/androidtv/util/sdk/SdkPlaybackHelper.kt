@@ -248,10 +248,15 @@ class SdkPlaybackHelper(
 
 			val item = catalog.getChannel(itemId)
 				?: catalog.getProgram(itemId)
-				?: withContext(Dispatchers.IO) {
-					val response by api.userLibraryApi.getItem(itemId)
-					response
+				?: run {
+					Toast.makeText(context, R.string.msg_cannot_play, Toast.LENGTH_LONG).show()
+					return@launch
 				}
+
+			if (catalog.getStreamUrl(item.id) == null && item.channelId?.let(catalog::getStreamUrl) == null) {
+				Toast.makeText(context, R.string.msg_cannot_play, Toast.LENGTH_LONG).show()
+				return@launch
+			}
 
 			val pos = item.userData?.playbackPositionTicks?.ticks?.minus(resumeSubtractDuration) ?: Duration.ZERO
 

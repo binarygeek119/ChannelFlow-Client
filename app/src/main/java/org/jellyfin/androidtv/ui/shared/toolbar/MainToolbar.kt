@@ -1,6 +1,8 @@
 package org.jellyfin.androidtv.ui.shared.toolbar
 
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -11,6 +13,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
@@ -62,20 +65,21 @@ fun MainToolbar(
 						colors = if (activeButton == MainToolbarActiveButton.Home) activeButtonColors else ButtonDefaults.colors(),
 						content = { Text(stringResource(R.string.lbl_live_tv_guide)) }
 					)
+					IconButton(
+						onClick = { settingsViewModel.show() },
+						contentPadding = PaddingValues(12.dp),
+					) {
+						Icon(
+							imageVector = ImageVector.vectorResource(R.drawable.ic_settings),
+							contentDescription = stringResource(R.string.lbl_settings),
+							modifier = Modifier.size(40.dp),
+						)
+					}
 				}
 			}
 		},
 		end = {
 			ToolbarButtons {
-				IconButton(
-					onClick = { settingsViewModel.show() },
-				) {
-					Icon(
-						imageVector = ImageVector.vectorResource(R.drawable.ic_settings),
-						contentDescription = stringResource(R.string.lbl_settings),
-					)
-				}
-
 				ToolbarClock()
 			}
 		}
