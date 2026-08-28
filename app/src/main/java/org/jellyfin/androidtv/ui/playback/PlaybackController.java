@@ -1291,7 +1291,13 @@ public class PlaybackController implements PlaybackControllerNotifiable {
 
     @Override
     public void onCompletion() {
-        Timber.i("On Completion fired");
+        if (isLiveTv && directStreamLiveTv) {
+            Timber.w("Live stream ended; staying on the current channel");
+            if (hasInitializedVideoManager()) {
+                mVideoManager.play();
+            }
+            return;
+        }
         itemComplete();
     }
 

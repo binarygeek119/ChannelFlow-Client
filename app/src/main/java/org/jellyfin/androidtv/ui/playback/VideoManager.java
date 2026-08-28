@@ -32,7 +32,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.HttpDataSource;
-import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -51,7 +50,6 @@ import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.channelflow.ChannelFlowStream;
 import org.jellyfin.androidtv.data.compat.StreamInfo;
 import org.jellyfin.androidtv.preference.UserPreferences;
-import org.jellyfin.androidtv.preference.constant.BufferLength;
 import org.jellyfin.androidtv.preference.constant.ZoomMode;
 import org.jellyfin.sdk.api.client.ApiClient;
 import org.jellyfin.sdk.model.api.MediaStream;
@@ -89,6 +87,8 @@ public class VideoManager {
     private long mMetaDuration = -1;
     private long lastExoPlayerPosition = -1;
     private boolean nightModeEnabled;
+
+    private boolean liveStream = false;
 
     public boolean isContracted = false;
 
@@ -167,6 +167,12 @@ public class VideoManager {
                 }
 
                 if (playbackState == Player.STATE_ENDED) {
+                    if (liveStream) {
+                        Timber.w("Live stream reported ended; restarting from the live edge");
+                        mExoPlayer.seekToDefaultPosition();
+                        mExoPlayer.setPlayWhenReady(true);
+                        return;
+                    }
                     if (mPlaybackControllerNotifiable != null) mPlaybackControllerNotifiable.onCompletion();
                     stopProgressLoop();
                 }
@@ -235,13 +241,11 @@ public class VideoManager {
         );
         exoPlayerBuilder.setTrackSelector(trackSelector);
 
-        DefaultExtractorsFactory extractorsFactory = new DefaultExtractorsFactory().setTsExtractorTimestampSearchBytes(TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES * 3);
-        extractorsFactory.setTsExtractorFlags(
-                DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES
-                        | DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
-        );
-        extractorsFactory.setConstantBitrateSeekingEnabled(true);
-        extractorsFactory.setConstantBitrateSeekingAlwaysEnabled(false);
+        DefaultExtractorsFactory extractorsFactory = new DefaultExtractorsFactory()
+                .setTsExtractorTimestampSearchBytes(TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES * 3)
+                .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES)
+                .setConstantBitrateSeekingEnabled(false)
+                .setConstantBitrateSeekingAlwaysEnabled(false);
         DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(context, exoPlayerHttpDataSourceFactory);
         if (assHandler != null) {
             AssSubtitleParserFactory assSubtitleParserFactory = new AssSubtitleParserFactory(assHandler);
@@ -255,20 +259,8 @@ public class VideoManager {
             exoPlayerBuilder.setMediaSourceFactory(new DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory));
         }
 
-        BufferLength bufferLength = userPreferences.get(UserPreferences.Companion.getBufferLength());
-        DefaultLoadControl loadControl;
-        if (bufferLength == BufferLength.LARGE) {
-            loadControl = new DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(50_000, 120_000, 2_500, 5_000)
-                    .build();
-        } else if (bufferLength == BufferLength.EXTRA_LARGE) {
-            loadControl = new DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(80_000, 240_000, 5_000, 10_000)
-                    .build();
-        } else {
-            loadControl = new DefaultLoadControl();
-        }
-        exoPlayerBuilder.setLoadControl(loadControl);
+        exoPlayerBuilder.setLoadControl(new LiveStreamLoadControl());
+        exoPlayerBuilder.setWakeMode(C.WAKE_MODE_NETWORK);
 
         exoPlayerBuilder.setAudioAttributes(new AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
@@ -427,13 +419,12 @@ public class VideoManager {
                     .setUri(Uri.parse(path))
                     .setMimeType(ChannelFlowStream.INSTANCE.mimeType(path))
                     .setSubtitleConfigurations(subtitleConfigurations);
-            if (ChannelFlowStream.INSTANCE.isLive(path)) {
-                mediaItemBuilder.setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().build());
-            }
+            liveStream = ChannelFlowStream.INSTANCE.isLive(path);
             MediaItem mediaItem = mediaItemBuilder.build();
 
-            Timber.i("Playing stream mime=%s live=%s", ChannelFlowStream.INSTANCE.mimeType(path), ChannelFlowStream.INSTANCE.isLive(path));
+            Timber.i("Playing stream mime=%s live=%s", ChannelFlowStream.INSTANCE.mimeType(path), liveStream);
             mExoPlayer.setMediaItem(mediaItem);
+            mExoPlayer.setForegroundMode(liveStream);
             mExoPlayer.prepare();
         } catch (IllegalStateException e) {
             Timber.e(e, "Unable to set video path.  Probably backing out.");

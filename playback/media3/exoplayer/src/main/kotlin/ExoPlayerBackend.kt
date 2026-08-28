@@ -108,11 +108,8 @@ class ExoPlayerBackend(
 					false -> TS_SEARCH_BYTES_HM
 				}
 			)
-			setTsExtractorFlags(
-				DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-					DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
-			)
-			setConstantBitrateSeekingEnabled(true)
+			setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES)
+			setConstantBitrateSeekingEnabled(false)
 			setConstantBitrateSeekingAlwaysEnabled(false)
 		}
 
@@ -160,7 +157,6 @@ class ExoPlayerBackend(
 				})
 			})
 			.setMediaSourceFactory(mediaSourceFactory)
-			.setPauseAtEndOfMediaItems(true)
 			.build()
 			.also { player ->
 				player.addListener(PlayerListener())
@@ -262,7 +258,7 @@ class ExoPlayerBackend(
 			setMediaId(stream.hashCode().toString())
 			setUri(stream.url)
 			mimeTypeForUrl(stream.url)?.let(::setMimeType)
-			if (isLiveUrl(stream.url)) {
+			if (pathOf(stream.url).contains(".m3u8")) {
 				setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
 			}
 		}.build()

@@ -8,6 +8,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.channelflow.ChannelFlowMediaStreamResolver
 import org.jellyfin.androidtv.preference.UserPreferences
@@ -27,12 +29,10 @@ import org.jellyfin.playback.media3.exoplayer.ExoPlayerOptions
 import org.jellyfin.playback.media3.exoplayer.exoPlayerPlugin
 import org.jellyfin.playback.media3.session.MediaSessionOptions
 import org.jellyfin.playback.media3.session.media3SessionPlugin
-import org.jellyfin.sdk.api.client.HttpClientOptions
-import org.jellyfin.sdk.api.okhttp.OkHttpFactory
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.scope.Scope
 import org.koin.dsl.module
-import kotlin.time.Duration
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
 import org.jellyfin.androidtv.ui.playback.PlaybackManager as LegacyPlaybackManager
 
@@ -44,13 +44,17 @@ val playbackModule = module {
 	single { PlaybackLauncher(get(), get(), get(), get()) }
 
 	single<HttpDataSource.Factory> {
-		val okHttpFactory = get<OkHttpFactory>()
-		val httpClientOptions = get<HttpClientOptions>().copy(
-			// Disable request timeout for media playback as this causes issues with Live TV
-			requestTimeout = Duration.ZERO
-		)
-
-		OkHttpDataSource.Factory(okHttpFactory.createClient(httpClientOptions))
+		val client = OkHttpClient.Builder()
+			.protocols(listOf(Protocol.HTTP_1_1))
+			.connectTimeout(15, TimeUnit.SECONDS)
+			.readTimeout(0, TimeUnit.MILLISECONDS)
+			.writeTimeout(15, TimeUnit.SECONDS)
+			.callTimeout(0, TimeUnit.MILLISECONDS)
+			.retryOnConnectionFailure(true)
+			.followRedirects(true)
+			.followSslRedirects(true)
+			.build()
+		OkHttpDataSource.Factory(client)
 			.setUserAgent("ChannelFlow TV")
 	}
 
