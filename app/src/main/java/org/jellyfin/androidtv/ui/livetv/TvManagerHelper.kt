@@ -19,6 +19,15 @@ fun BaseItemDto.copyWithLastPlayedDate(
 	)
 )
 
+fun resolveGuideNow(fragment: Fragment, callback: (LocalDateTime) -> Unit) {
+	val catalog by fragment.inject<ChannelFlowGuideRepository>()
+
+	fragment.lifecycleScope.launch {
+		val now = runCatching { catalog.effectiveNow() }.getOrDefault(LocalDateTime.now())
+		callback(now)
+	}
+}
+
 fun loadLiveTvChannels(fragment: Fragment, callback: (channels: Collection<BaseItemDto>?) -> Unit) {
 	val catalog by fragment.inject<ChannelFlowGuideRepository>()
 

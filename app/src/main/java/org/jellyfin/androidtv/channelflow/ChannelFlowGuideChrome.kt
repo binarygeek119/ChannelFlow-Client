@@ -10,7 +10,6 @@ import androidx.core.content.ContextCompat
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.util.Utils
 import org.jellyfin.sdk.model.api.BaseItemDto
-import java.time.LocalDateTime
 
 object ChannelFlowGuideChrome {
 	fun programBackground(context: Context, program: BaseItemDto, focused: Boolean): Drawable {
@@ -37,7 +36,7 @@ object ChannelFlowGuideChrome {
 	fun isAiringNow(program: BaseItemDto): Boolean {
 		val start = program.startDate ?: return false
 		val end = program.endDate ?: return false
-		val now = LocalDateTime.now()
+		val now = ChannelFlowGuideClock.now()
 		return !now.isBefore(start) && now.isBefore(end)
 	}
 

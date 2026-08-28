@@ -55,6 +55,7 @@ import org.jellyfin.androidtv.ui.livetv.LiveTvGuideFragment;
 import org.jellyfin.androidtv.ui.livetv.LiveTvGuideFragmentHelperKt;
 import org.jellyfin.androidtv.ui.livetv.ProgramDetailDialog;
 import org.jellyfin.androidtv.ui.livetv.TvManager;
+import org.jellyfin.androidtv.ui.livetv.TvManagerHelperKt;
 import org.jellyfin.androidtv.ui.navigation.Destinations;
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository;
 import org.jellyfin.androidtv.ui.playback.overlay.LeanbackOverlayFragment;
@@ -792,18 +793,21 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
     private void loadGuide() {
         tvGuideBinding.spinner.setVisibility(View.VISIBLE);
-        fillTimeLine(GUIDE_HOURS);
-        TvManager.loadAllChannels(this, ndx -> {
-            mFirstFocusChannelId = getFocusChannelId();
-            ndx = TvManager.pageStartIndex(TvManager.getAllChannelsIndex(mFirstFocusChannelId), PAGE_SIZE);
+        TvManagerHelperKt.resolveGuideNow(this, start -> {
+            fillTimeLine(start, GUIDE_HOURS);
+            TvManager.loadAllChannels(this, ndx -> {
+                mFirstFocusChannelId = getFocusChannelId();
+                ndx = TvManager.pageStartIndex(TvManager.getAllChannelsIndex(mFirstFocusChannelId), PAGE_SIZE);
 
-            mAllChannels = TvManager.getAllChannels();
-            if (!mAllChannels.isEmpty()) {
-                displayChannels(ndx, PAGE_SIZE);
-            } else {
-                tvGuideBinding.spinner.setVisibility(View.GONE);
-            }
+                mAllChannels = TvManager.getAllChannels();
+                if (!mAllChannels.isEmpty()) {
+                    displayChannels(ndx, PAGE_SIZE);
+                } else {
+                    tvGuideBinding.spinner.setVisibility(View.GONE);
+                }
 
+                return null;
+            });
             return null;
         });
     }
@@ -1015,10 +1019,9 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         return programRow;
     }
 
-    private void fillTimeLine(int hours) {
-        mCurrentGuideStart = LocalDateTime.now();
-        mCurrentGuideStart = mCurrentGuideStart
-                .withMinute(mCurrentGuideStart.getMinute() >= 30 ? 30 : 0)
+    private void fillTimeLine(LocalDateTime start, int hours) {
+        mCurrentGuideStart = start
+                .withMinute(start.getMinute() >= 30 ? 30 : 0)
                 .withSecond(0)
                 .withNano(0);
 

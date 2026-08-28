@@ -159,7 +159,8 @@ public class LiveTvGuideFragment extends Fragment implements LiveTvGuide, View.O
         mResetButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                pageGuideTo(LocalDateTime.now());
+                TvManager.forceReload();
+                load();
             }
         });
 
@@ -208,18 +209,21 @@ public class LiveTvGuideFragment extends Fragment implements LiveTvGuide, View.O
     }
 
     private void load() {
-        mCurrentGuideStart = LocalDateTime.now();
-        fillTimeLine(mCurrentGuideStart, getGuideHours());
-        TvManager.loadAllChannels(this, ndx -> {
-            mFirstFocusChannelId = TvManager.getLastLiveTvChannel();
-            ndx = TvManager.pageStartIndex(ndx, PAGE_SIZE);
+        TvManagerHelperKt.resolveGuideNow(this, start -> {
+            mCurrentGuideStart = start;
+            fillTimeLine(mCurrentGuideStart, getGuideHours());
+            TvManager.loadAllChannels(this, ndx -> {
+                mFirstFocusChannelId = TvManager.getLastLiveTvChannel();
+                ndx = TvManager.pageStartIndex(ndx, PAGE_SIZE);
 
-            mAllChannels = TvManager.getAllChannels();
-            if (!mAllChannels.isEmpty()) {
-                displayChannels(ndx, PAGE_SIZE);
-            } else {
-                mSpinner.setVisibility(View.GONE);
-            }
+                mAllChannels = TvManager.getAllChannels();
+                if (!mAllChannels.isEmpty()) {
+                    displayChannels(ndx, PAGE_SIZE);
+                } else {
+                    mSpinner.setVisibility(View.GONE);
+                }
+                return null;
+            });
             return null;
         });
     }

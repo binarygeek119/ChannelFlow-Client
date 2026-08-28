@@ -77,10 +77,15 @@ class ChannelFlowGuideRepository(
 		return programs.firstOrNull { it.id == itemId }?.iconUrl
 	}
 
+	suspend fun effectiveNow(): LocalDateTime {
+		awaitPrograms()
+		return mutex.withLock { ChannelFlowGuideClock.now() }
+	}
+
 	suspend fun getChannels(): List<BaseItemDto> {
 		awaitChannels()
 		awaitPrograms()
-		val now = LocalDateTime.now()
+		val now = mutex.withLock { ChannelFlowGuideClock.now() }
 		val favsAtTop = liveTvPreferences[LiveTvPreferences.favsAtTop]
 		return mutex.withLock {
 			channels
@@ -98,7 +103,7 @@ class ChannelFlowGuideRepository(
 		awaitChannels()
 		awaitPrograms()
 		return mutex.withLock {
-			channels.firstOrNull { it.id == id && it.hasPlayableStream() }?.toBaseItem(LocalDateTime.now())
+			channels.firstOrNull { it.id == id && it.hasPlayableStream() }?.toBaseItem(ChannelFlowGuideClock.now())
 		}
 	}
 
@@ -114,7 +119,7 @@ class ChannelFlowGuideRepository(
 			val matched = programs
 				.filter { it.channelId in ids && it.start < endTime && it.end > startTime }
 				.sortedBy { it.start }
-			Timber.d("XMLTV matched ${matched.size} of ${programs.size} programmes for ${ids.size} channels")
+			Timber.d("XMLTV matched ${matched.size} of ${programs.size} programmes for ${ids.size} channels window=$startTime..$endTime")
 			matched.map { it.toBaseItem() }
 		}
 	}
@@ -132,6 +137,7 @@ class ChannelFlowGuideRepository(
 		channels = emptyList()
 		programs = emptyList()
 		loadedAt = 0L
+		ChannelFlowGuideClock.updateCoverage(emptyList())
 		channelsReady.value = false
 		programsReady.value = false
 	}
@@ -205,6 +211,12 @@ class ChannelFlowGuideRepository(
 						mutex.withLock {
 							programs = nextPrograms
 							loadedAt = System.currentTimeMillis()
+							ChannelFlowGuideClock.updateCoverage(nextPrograms)
+						}
+						val deviceNow = LocalDateTime.now()
+						val guideNow = ChannelFlowGuideClock.now()
+						if (guideNow != deviceNow) {
+							Timber.w("Device clock $deviceNow is outside XMLTV coverage; guide using $guideNow")
 						}
 						Timber.i("Loaded ${nextPrograms.size} ChannelFlow XMLTV programmes")
 					} else {
