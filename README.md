@@ -69,10 +69,10 @@ The debug APK is written to `app/build/outputs/apk/debug/` as `ChannelFlow-TV-v<
 A local release APK (minified, signed with the debug key unless a keystore is configured):
 
 ```shell
-CHANNELFLOW_VERSION=0.0.1 ./gradlew assembleRelease
+CHANNELFLOW_VERSION=0.0.2 ./gradlew assembleRelease
 ```
 
-The release APK is written to `app/build/outputs/apk/release/` as `ChannelFlow-TV-v0.0.1-release.apk`.
+The release APK is written to `app/build/outputs/apk/release/` as `ChannelFlow-TV-v0.0.2-release.apk`.
 
 ## Releases
 
