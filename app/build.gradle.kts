@@ -30,6 +30,12 @@ android {
 		isCoreLibraryDesugaringEnabled = true
 	}
 
+	packaging {
+		jniLibs {
+			pickFirsts += "**/libc++_shared.so"
+		}
+	}
+
 	signingConfigs {
 		val keystoreFile = getProperty("keystore.file")
 		val keystorePassword = getProperty("keystore.password")
