@@ -1,17 +1,22 @@
 package org.jellyfin.androidtv.channelflow
 
 import java.io.File
+import java.net.URLEncoder
 import java.util.UUID
 
 object ChannelFlowVlcPlaylist {
+	const val USER_AGENT = "ChannelFlow-TV"
+
 	fun text(
 		streamUrl: String,
 		name: String = "ChannelFlow",
 		channelId: UUID? = null,
 		number: String? = null,
 		logoUrl: String? = null,
+		apiKey: String? = null,
 	): String {
 		val title = escape(name.ifBlank { "ChannelFlow" })
+		val playUrl = withApiKey(streamUrl.trim(), apiKey)
 		val extinf = buildString {
 			append("#EXTINF:-1")
 			if (channelId != null) append(" tvg-id=\"").append(channelId.toString().replace("-", "")).append('"')
@@ -23,11 +28,12 @@ object ChannelFlowVlcPlaylist {
 		return buildString {
 			appendLine("#EXTM3U")
 			appendLine(extinf)
-			appendLine("#EXTVLCOPT:http-user-agent=ChannelFlow TV")
+			appendLine("#EXTVLCOPT:http-user-agent=$USER_AGENT")
 			appendLine("#EXTVLCOPT:network-caching=1500")
 			appendLine("#EXTVLCOPT:live-caching=1500")
 			appendLine("#EXTVLCOPT:http-reconnect=true")
-			appendLine(streamUrl.trim())
+			if (!apiKey.isNullOrBlank()) appendLine("#EXTVLCOPT:http-header=X-Api-Key: $apiKey")
+			appendLine(playUrl)
 		}
 	}
 
@@ -38,10 +44,21 @@ object ChannelFlowVlcPlaylist {
 		channelId: UUID? = null,
 		number: String? = null,
 		logoUrl: String? = null,
+		apiKey: String? = null,
 	): File {
 		file.parentFile?.mkdirs()
-		file.writeText(text(streamUrl, name, channelId, number, logoUrl), Charsets.UTF_8)
+		file.writeText(text(streamUrl, name, channelId, number, logoUrl, apiKey), Charsets.UTF_8)
 		return file
+	}
+
+	fun streamUrlFrom(text: String): String? =
+		M3uParser.parse(text).firstOrNull()?.streamUrl
+
+	fun withApiKey(url: String, apiKey: String?): String {
+		if (apiKey.isNullOrBlank() || url.contains("apiKey=", ignoreCase = true)) return url
+		val encoded = URLEncoder.encode(apiKey, Charsets.UTF_8.name())
+		val separator = if (url.contains('?')) '&' else '?'
+		return "$url${separator}apiKey=$encoded"
 	}
 
 	private fun escape(value: String): String =

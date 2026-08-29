@@ -48,6 +48,7 @@ import androidx.media3.ui.PlayerView;
 
 import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.channelflow.ChannelFlowChannel;
+import org.jellyfin.androidtv.channelflow.ChannelFlowConnectionStore;
 import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository;
 import org.jellyfin.androidtv.channelflow.ChannelFlowStream;
 import org.jellyfin.androidtv.data.compat.StreamInfo;
@@ -451,13 +452,16 @@ public class VideoManager {
                 ChannelFlowGuideRepository catalog = KoinJavaComponent.get(ChannelFlowGuideRepository.class);
                 channel = catalog.findChannel(streamInfo.getItemId());
             }
+            ChannelFlowConnectionStore store = KoinJavaComponent.get(ChannelFlowConnectionStore.class);
+            String apiKey = store.getConnection() != null ? store.getConnection().getApiKey() : null;
             vlcEngine.setMedia(
                     path,
                     liveStream,
                     channel != null ? channel.getName() : null,
                     channel != null ? channel.getId() : streamInfo.getItemId(),
                     channel != null ? channel.getNumber() : null,
-                    channel != null ? channel.getLogoUrl() : null
+                    channel != null ? channel.getLogoUrl() : null,
+                    apiKey
             );
             return;
         }

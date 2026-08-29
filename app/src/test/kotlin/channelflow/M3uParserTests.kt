@@ -40,13 +40,24 @@ class M3uParserTests : FunSpec({
 			name = "News",
 			channelId = channelId,
 			number = "5.1",
+			apiKey = "secret",
 		)
 		playlist.shouldStartWith("#EXTM3U")
 		playlist.contains("tvg-id=\"11111111222233334444555555555555\"") shouldBe true
-		playlist.contains("#EXTVLCOPT:http-user-agent=ChannelFlow TV") shouldBe true
+		playlist.contains("#EXTVLCOPT:http-user-agent=ChannelFlow-TV") shouldBe true
+		playlist.contains("#EXTVLCOPT:http-header=X-Api-Key: secret") shouldBe true
 		playlist.contains("https://server/iptv/stream/11111111222233334444555555555555?apiKey=secret") shouldBe true
 		M3uParser.parse(playlist).shouldHaveSize(1)
 		M3uParser.parse(playlist)[0].name shouldBe "News"
+	}
+
+	test("adds an apiKey query to a bare stream URL") {
+		ChannelFlowVlcPlaylist.withApiKey("http://server/iptv/stream/abc", "secret") shouldBe
+			"http://server/iptv/stream/abc?apiKey=secret"
+		ChannelFlowVlcPlaylist.withApiKey("http://server/iptv/stream/abc?x=1", "secret") shouldBe
+			"http://server/iptv/stream/abc?x=1&apiKey=secret"
+		ChannelFlowVlcPlaylist.withApiKey("http://server/iptv/stream/abc?apiKey=old", "secret") shouldBe
+			"http://server/iptv/stream/abc?apiKey=old"
 	}
 
 	test("detects HLS vs MPEG-TS mime types") {
