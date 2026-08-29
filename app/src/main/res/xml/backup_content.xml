@@ -4,6 +4,15 @@
     <include
         domain="file"
         path="authentication_store.json" />
+    <include
+        domain="file"
+        path="channelflow_connection.json" />
+    <include
+        domain="file"
+        path="channelflow_reminders.json" />
+    <include
+        domain="sharedpref"
+        path="channelflow_servers" />
 
     <!-- UserPreferences -->
     <include

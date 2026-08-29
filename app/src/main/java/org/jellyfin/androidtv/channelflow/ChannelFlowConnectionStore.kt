@@ -1,26 +1,25 @@
 package org.jellyfin.androidtv.channelflow
 
 import android.content.Context
+import android.os.Build
+import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 import timber.log.Timber
+import java.io.File
 import java.util.UUID
 
 class ChannelFlowConnectionStore(
 	context: Context,
 ) {
-	private val file = context.filesDir.resolve("channelflow_connection.json")
-	private val json = Json {
-		ignoreUnknownKeys = true
-		encodeDefaults = true
-	}
+	private val app = context.applicationContext
+	private val file = app.filesDir.resolve(FILE_NAME)
+	private val deviceFile = deviceProtectedContext(app).filesDir.resolve(FILE_NAME)
+	private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-	private val _state = MutableStateFlow(load().normalized())
+	private val _state = MutableStateFlow(load())
 	val state: StateFlow<ChannelFlowServersState> = _state.asStateFlow()
 
 	val connection: ChannelFlowConnection?
@@ -36,7 +35,7 @@ class ChannelFlowConnectionStore(
 		get() = _state.value.activeServerId
 
 	init {
-		write()
+		if (isConnected) write()
 	}
 
 	fun save(connection: ChannelFlowConnection) {
@@ -99,13 +98,20 @@ class ChannelFlowConnectionStore(
 	fun favoriteIds(): Set<UUID> =
 		_state.value.favoriteChannelIds.mapNotNull { it.toUUIDOrNull() }.toSet()
 
-	private fun load(): StoredState {
-		if (!file.exists()) return StoredState()
-		return runCatching {
-			json.decodeFromString<StoredState>(file.readText())
-		}.onFailure { error ->
-			Timber.e(error, "Unable to read ChannelFlow connection store")
-		}.getOrDefault(StoredState())
+	private fun load(): ChannelFlowServersState {
+		val sources = listOf(
+			"file" to readFile(file),
+			"device-file" to readFile(deviceFile),
+			"prefs" to prefs.getString(KEY_STATE, null),
+		)
+		for ((source, text) in sources) {
+			val state = text?.let { ChannelFlowConnectionPersistence.decode(it) }
+			if (state != null && state.connection != null) {
+				Timber.i("Restored ChannelFlow server link from %s", source)
+				return state
+			}
+		}
+		return ChannelFlowServersState()
 	}
 
 	private fun commit(next: ChannelFlowServersState) {
@@ -115,45 +121,49 @@ class ChannelFlowConnectionStore(
 
 	private fun write() {
 		val snapshot = _state.value
+		val text = ChannelFlowConnectionPersistence.encode(snapshot)
+		writeAtomic(file, text)
+		if (deviceFile.absolutePath != file.absolutePath) writeAtomic(deviceFile, text)
 		runCatching {
-			file.writeText(
-				json.encodeToString(
-					StoredState(
-						connection = snapshot.connection,
-						servers = snapshot.servers,
-						activeServerId = snapshot.activeServerId,
-						favoriteChannelIds = snapshot.favoriteChannelIds,
-					)
-				)
-			)
+			prefs.edit { putString(KEY_STATE, text) }
 		}.onFailure { error ->
-			Timber.e(error, "Unable to write ChannelFlow connection store")
+			Timber.e(error, "Unable to write ChannelFlow connection preferences")
 		}
 	}
 
-	private fun StoredState.normalized(): ChannelFlowServersState {
-		var nextServers = servers
-		var nextActiveId = activeServerId
-		if (nextServers.isEmpty() && connection != null) {
-			nextActiveId = UUID.randomUUID().toString()
-			nextServers = listOf(ChannelFlowSavedServer(id = nextActiveId, connection = connection))
-		}
-		val active = nextServers.firstOrNull { it.id == nextActiveId } ?: nextServers.firstOrNull()
-		return ChannelFlowServersState(
-			servers = nextServers,
-			activeServerId = active?.id,
-			connection = active?.connection,
-			favoriteChannelIds = favoriteChannelIds,
-		)
+	private fun readFile(target: File): String? {
+		if (!target.exists()) return null
+		return runCatching { target.readText() }
+			.onFailure { error -> Timber.e(error, "Unable to read ChannelFlow connection store %s", target.name) }
+			.getOrNull()
 	}
 
-	@Serializable
-	private data class StoredState(
-		val connection: ChannelFlowConnection? = null,
-		val servers: List<ChannelFlowSavedServer> = emptyList(),
-		val activeServerId: String? = null,
-		val favoriteChannelIds: Set<String> = emptySet(),
-	)
+	private fun writeAtomic(target: File, text: String) {
+		runCatching {
+			target.parentFile?.mkdirs()
+			val tmp = File(target.parentFile, "${target.name}.tmp")
+			tmp.writeText(text)
+			if (!tmp.renameTo(target)) {
+				tmp.copyTo(target, overwrite = true)
+				tmp.delete()
+			}
+		}.onFailure { error ->
+			Timber.e(error, "Unable to write ChannelFlow connection store %s", target.name)
+		}
+	}
+
+	companion object {
+		const val FILE_NAME = "channelflow_connection.json"
+		const val PREFS = "channelflow_servers"
+		private const val KEY_STATE = "state"
+
+		private fun deviceProtectedContext(context: Context): Context =
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+				context.createDeviceProtectedStorageContext()
+			} else {
+				context
+			}
+	}
 }
 
 data class ChannelFlowServersState(
