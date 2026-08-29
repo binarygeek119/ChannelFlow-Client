@@ -1,19 +1,21 @@
 package org.jellyfin.androidtv.channelflow
 
+import android.app.Activity
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.edit
 import android.content.pm.PackageInstaller
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import kotlinx.coroutines.CoroutineScope
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -54,8 +56,8 @@ class ChannelFlowUpdateChecker(
 		.followRedirects(true)
 		.followSslRedirects(true)
 		.build()
-	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-	private var installJob: Job? = null
+	private val downloadLock = Mutex()
+	private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 	private var pending: ChannelFlowUpdateStatus.Available? = null
 
 	private val _status = MutableStateFlow<ChannelFlowUpdateStatus>(ChannelFlowUpdateStatus.Idle)
@@ -98,27 +100,28 @@ class ChannelFlowUpdateChecker(
 		Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
 			.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-	fun installLatest() {
-		val available = pending ?: _status.value as? ChannelFlowUpdateStatus.Available ?: return
-		if (available.apkUrl.isNullOrBlank()) {
+	fun startInstall(context: Context) {
+		val available = pending ?: _status.value as? ChannelFlowUpdateStatus.Available
+		if (available?.apkUrl.isNullOrBlank()) {
 			_status.value = ChannelFlowUpdateStatus.Failed("no apk")
 			return
 		}
-		if (_status.value is ChannelFlowUpdateStatus.Downloading || _status.value is ChannelFlowUpdateStatus.Installing) return
-		installJob?.cancel()
-		installJob = scope.launch {
-			runCatching { downloadAndInstall(available) }
-				.onFailure { error ->
-					Timber.e(error, "Unable to install ChannelFlow update")
-					_status.value = ChannelFlowUpdateStatus.Failed(error.message)
-				}
-		}
+		val intent = Intent(context, ChannelFlowUpdateInstallActivity::class.java)
+		if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+		context.startActivity(intent)
 	}
 
-	fun retryInstall(): Boolean {
+	fun retryInstall(context: Context): Boolean {
 		if (pending?.apkUrl.isNullOrBlank()) return false
-		installLatest()
+		startInstall(context)
 		return true
+	}
+
+	fun shouldPromptLaunch(latest: String): Boolean =
+		ChannelFlowVersion.shouldPromptLaunch(latest, prefs.getString(KEY_DISMISSED, null))
+
+	fun dismissLaunchPrompt(latest: String) {
+		prefs.edit { putString(KEY_DISMISSED, ChannelFlowVersion.normalize(latest)) }
 	}
 
 	fun restorePending() {
@@ -158,10 +161,16 @@ class ChannelFlowUpdateChecker(
 		}
 	}
 
-	private suspend fun downloadAndInstall(available: ChannelFlowUpdateStatus.Available) {
+	suspend fun downloadLatest(): File = downloadLock.withLock {
+		val available = pending ?: _status.value as? ChannelFlowUpdateStatus.Available
+			?: error("No update available")
 		val apkUrl = available.apkUrl ?: error("No APK on GitHub release")
 		val file = apkFile()
 		file.parentFile?.mkdirs()
+		if (file.exists() && available.apkSize > 1000L && file.length() == available.apkSize) {
+			_status.value = ChannelFlowUpdateStatus.Installing(available.latest)
+			return file
+		}
 		if (file.exists()) file.delete()
 
 		_status.value = ChannelFlowUpdateStatus.Downloading(available.latest, 0, 0L, available.apkSize)
@@ -195,17 +204,52 @@ class ChannelFlowUpdateChecker(
 		}
 		if (!file.exists() || file.length() < 1000L) error("Downloaded APK is empty")
 		_status.value = ChannelFlowUpdateStatus.Installing(available.latest)
-		commitInstall(file, available.latest)
+		file
 	}
 
-	private fun commitInstall(file: File, latest: String) {
-		val installer = app.packageManager.packageInstaller
-		val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-			setAppPackageName(app.packageName)
-			setSize(file.length())
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-				setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+	fun openInstaller(activity: Activity, file: File): Boolean {
+		if (openSystemInstaller(activity, file)) return true
+		return runCatching { commitInstall(activity, file) }
+			.onFailure { Timber.e(it, "PackageInstaller session failed") }
+			.isSuccess
+	}
+
+	private fun openSystemInstaller(activity: Activity, file: File): Boolean {
+		val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.update", file)
+		val intents = listOf(
+			Intent(Intent.ACTION_VIEW).setDataAndType(uri, APK_MIME),
+			Intent(Intent.ACTION_INSTALL_PACKAGE).setDataAndType(uri, APK_MIME),
+		)
+		for (intent in intents) {
+			intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+			grantInstallerAccess(activity, intent, uri)
+			val started = runCatching { activity.startActivity(intent) }.isSuccess
+			if (started) {
+				Timber.i("Opened system installer via %s", intent.action)
+				return true
 			}
+		}
+		return false
+	}
+
+	private fun grantInstallerAccess(context: Context, intent: Intent, uri: Uri) {
+		val matches = context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+		for (resolve in matches) {
+			context.grantUriPermission(
+				resolve.activityInfo.packageName,
+				uri,
+				Intent.FLAG_GRANT_READ_URI_PERMISSION,
+			)
+		}
+	}
+
+	private fun commitInstall(activity: Activity, file: File) {
+		val latest = pending?.latest ?: BuildConfig.VERSION_NAME
+		val installer = activity.packageManager.packageInstaller
+		val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+			setAppPackageName(activity.packageName)
+			setSize(file.length())
 		}
 		val sessionId = installer.createSession(params)
 		val session = installer.openSession(sessionId)
@@ -217,11 +261,11 @@ class ChannelFlowUpdateChecker(
 			val flags = PendingIntent.FLAG_UPDATE_CURRENT or (
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
 			)
-			val statusIntent = Intent(app, ChannelFlowUpdateInstallReceiver::class.java).apply {
+			val statusIntent = Intent(activity, ChannelFlowUpdateInstallActivity::class.java).apply {
 				action = ACTION_INSTALL_STATUS
 				putExtra(EXTRA_VERSION, latest)
 			}
-			val pendingIntent = PendingIntent.getBroadcast(app, sessionId, statusIntent, flags)
+			val pendingIntent = PendingIntent.getActivity(activity, sessionId, statusIntent, flags)
 			session.commit(pendingIntent.intentSender)
 		} catch (error: Throwable) {
 			runCatching { session.abandon() }
@@ -269,6 +313,9 @@ class ChannelFlowUpdateChecker(
 		const val RELEASES_PAGE = "https://github.com/$GITHUB_REPO/releases"
 		const val ACTION_INSTALL_STATUS = "org.jellyfin.androidtv.channelflow.INSTALL_STATUS"
 		const val EXTRA_VERSION = "version"
+		private const val PREFS = "channelflow_updates"
+		private const val KEY_DISMISSED = "dismissed_version"
+		private const val APK_MIME = "application/vnd.android.package-archive"
 		private const val LATEST_URL = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
 		private const val LIST_URL = "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=5"
 		private const val DEFAULT_BUFFER = 64 * 1024

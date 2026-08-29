@@ -9,6 +9,12 @@ object ChannelFlowVersion {
 
 	fun display(raw: String): String = "v.${normalize(raw)}"
 
+	fun shouldPromptLaunch(latest: String, dismissed: String?): Boolean {
+		if (normalize(latest).isBlank()) return false
+		if (dismissed.isNullOrBlank()) return true
+		return isNewer(latest, dismissed)
+	}
+
 	internal fun rank(version: String): Long {
 		val (core, preRelease) = when (val dash = version.indexOf('-')) {
 			-1 -> version to null

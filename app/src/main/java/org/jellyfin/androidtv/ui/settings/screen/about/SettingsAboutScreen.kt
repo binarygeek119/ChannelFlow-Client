@@ -138,11 +138,11 @@ fun SettingsAboutScreen(launchedFromLogin: Boolean = false) {
 							} else if (updater.needsInstallPermission()) {
 								runCatching { context.startActivity(updater.installPermissionIntent()) }
 							} else {
-								updater.installLatest()
+								updater.startInstall(context)
 							}
 						}
 						is ChannelFlowUpdateStatus.Failed -> {
-							if (!updater.retryInstall()) {
+							if (!updater.retryInstall(context)) {
 								scope.launch { updater.check(force = true) }
 							}
 						}

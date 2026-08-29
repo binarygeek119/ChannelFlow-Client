@@ -15,6 +15,13 @@ class ChannelFlowVersionTests : FunSpec({
 		ChannelFlowVersion.isNewer("0.0.1-dev.1", "0.0.1") shouldBe false
 	}
 
+	test("prompts on launch until that version is dismissed") {
+		ChannelFlowVersion.shouldPromptLaunch("0.0.3", null) shouldBe true
+		ChannelFlowVersion.shouldPromptLaunch("0.0.3", "0.0.2") shouldBe true
+		ChannelFlowVersion.shouldPromptLaunch("0.0.3", "0.0.3") shouldBe false
+		ChannelFlowVersion.shouldPromptLaunch("", null) shouldBe false
+	}
+
 	test("formats display versions with a v. prefix") {
 		ChannelFlowVersion.display("v0.0.1") shouldBe "v.0.0.1"
 		ChannelFlowVersion.display("0.0.2") shouldBe "v.0.0.2"
