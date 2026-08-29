@@ -61,6 +61,12 @@ class ChannelFlowGuideRepository(
 		ensureLoadStarted(force).join()
 	}
 
+	fun findChannel(itemId: UUID): ChannelFlowChannel? {
+		channels.firstOrNull { it.id == itemId }?.let { return it }
+		val program = programs.firstOrNull { it.id == itemId } ?: return null
+		return channels.firstOrNull { it.id == program.channelId }
+	}
+
 	fun getStreamUrl(itemId: UUID): String? {
 		channels.firstOrNull { it.id == itemId }?.streamUrl?.let { return it }
 		val program = programs.firstOrNull { it.id == itemId } ?: return null

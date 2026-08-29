@@ -17,6 +17,7 @@ import org.jellyfin.androidtv.BuildConfig
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.data.repository.ExternalAppRepository
 import org.jellyfin.androidtv.preference.UserPreferences
+import org.jellyfin.androidtv.preference.constant.PlaybackEngine
 import org.jellyfin.androidtv.ui.base.LocalShapes
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.form.RadioButton
@@ -42,6 +43,7 @@ fun SettingsPlaybackPlayerScreen() {
 	val currentExternalPlayer = remember(context) { externalAppRepository.getCurrentExternalPlayerApp(context) }
 
 	var playbackRewriteVideoEnabled by rememberPreference(userPreferences, UserPreferences.playbackRewriteVideoEnabled)
+	var playbackEngine by rememberPreference(userPreferences, UserPreferences.playbackEngine)
 	val showNewPlayer = playbackRewriteVideoEnabled || BuildConfig.DEVELOPMENT
 
 	SettingsColumn {
@@ -63,15 +65,44 @@ fun SettingsPlaybackPlayerScreen() {
 							.clip(LocalShapes.current.small)
 					)
 				},
-				headingContent = { Text(stringResource(R.string.app_name)) },
-				trailingContent = { RadioButton(checked = currentExternalPlayer == null && !playbackRewriteVideoEnabled) },
-				captionContent = { Text(stringResource(R.string.video_player_internal)) },
+				headingContent = { Text(stringResource(R.string.video_player_exoplayer)) },
+				trailingContent = {
+					RadioButton(checked = currentExternalPlayer == null && !playbackRewriteVideoEnabled && playbackEngine == PlaybackEngine.EXOPLAYER)
+				},
+				captionContent = { Text(stringResource(R.string.video_player_exoplayer_description)) },
 				onClick = {
 					playbackRewriteVideoEnabled = false
+					playbackEngine = PlaybackEngine.EXOPLAYER
 					externalAppRepository.setExternalPlayerapp(null)
 					router.back()
 				},
 				modifier = Modifier.focusKey("player_internal")
+			)
+		}
+
+		item {
+			ListButton(
+				leadingContent = {
+					Image(
+						painter = rememberAsyncImagePainter(R.drawable.ic_tv_play),
+						contentDescription = null,
+						modifier = Modifier
+							.size(32.dp)
+							.clip(LocalShapes.current.small)
+					)
+				},
+				headingContent = { Text(stringResource(R.string.video_player_vlc)) },
+				trailingContent = {
+					RadioButton(checked = currentExternalPlayer == null && !playbackRewriteVideoEnabled && playbackEngine == PlaybackEngine.VLC)
+				},
+				captionContent = { Text(stringResource(R.string.video_player_vlc_description)) },
+				onClick = {
+					playbackRewriteVideoEnabled = false
+					playbackEngine = PlaybackEngine.VLC
+					externalAppRepository.setExternalPlayerapp(null)
+					router.back()
+				},
+				modifier = Modifier.focusKey("player_vlc")
 			)
 		}
 
@@ -91,6 +122,7 @@ fun SettingsPlaybackPlayerScreen() {
 				captionContent = { Text(stringResource(R.string.enable_playback_module_description)) },
 				onClick = {
 					playbackRewriteVideoEnabled = true
+					playbackEngine = PlaybackEngine.EXOPLAYER
 					externalAppRepository.setExternalPlayerapp(null)
 					router.back()
 				},

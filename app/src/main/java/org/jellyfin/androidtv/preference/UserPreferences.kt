@@ -11,6 +11,7 @@ import org.jellyfin.androidtv.preference.constant.BufferLength
 import org.jellyfin.androidtv.preference.constant.ClockBehavior
 import org.jellyfin.androidtv.preference.constant.HEVCLevel
 import org.jellyfin.androidtv.preference.constant.NextUpBehavior
+import org.jellyfin.androidtv.preference.constant.PlaybackEngine
 import org.jellyfin.androidtv.preference.constant.RefreshRateSwitchingBehavior
 import org.jellyfin.androidtv.preference.constant.StillWatchingBehavior
 import org.jellyfin.androidtv.preference.constant.WatchedIndicatorBehavior
@@ -87,6 +88,11 @@ class UserPreferences(context: Context) : SharedPreferenceStore(
 		 * Whether to use an external playback application or not.
 		 */
 		var useExternalPlayer = booleanPreference("external_player", false)
+
+		/**
+		 * Built-in playback engine when not using an external app.
+		 */
+		var playbackEngine = enumPreference("playback_engine", PlaybackEngine.VLC)
 
 		/**
 		 * Component name for the external playback application.

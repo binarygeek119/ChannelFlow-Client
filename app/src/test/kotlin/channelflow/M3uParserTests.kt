@@ -33,6 +33,22 @@ class M3uParserTests : FunSpec({
 		channels[0].streamUrl shouldBe "https://cdn.example/live/index.m3u8"
 	}
 
+	test("writes a VLC IPTV playlist for a channel stream") {
+		val channelId = java.util.UUID.fromString("11111111-2222-3333-4444-555555555555")
+		val playlist = ChannelFlowVlcPlaylist.text(
+			streamUrl = "https://server/iptv/stream/11111111222233334444555555555555?apiKey=secret",
+			name = "News",
+			channelId = channelId,
+			number = "5.1",
+		)
+		playlist.shouldStartWith("#EXTM3U")
+		playlist.contains("tvg-id=\"11111111222233334444555555555555\"") shouldBe true
+		playlist.contains("#EXTVLCOPT:http-user-agent=ChannelFlow TV") shouldBe true
+		playlist.contains("https://server/iptv/stream/11111111222233334444555555555555?apiKey=secret") shouldBe true
+		M3uParser.parse(playlist).shouldHaveSize(1)
+		M3uParser.parse(playlist)[0].name shouldBe "News"
+	}
+
 	test("detects HLS vs MPEG-TS mime types") {
 		ChannelFlowStream.mimeType("https://x/live/index.m3u8") shouldBe ChannelFlowStream.MIME_HLS
 		ChannelFlowStream.mimeType("http://server/iptv/stream/abc") shouldBe ChannelFlowStream.MIME_TS

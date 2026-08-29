@@ -47,10 +47,14 @@ import androidx.media3.ui.CaptionStyleCompat;
 import androidx.media3.ui.PlayerView;
 
 import org.jellyfin.androidtv.R;
+import org.jellyfin.androidtv.channelflow.ChannelFlowChannel;
+import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository;
 import org.jellyfin.androidtv.channelflow.ChannelFlowStream;
 import org.jellyfin.androidtv.data.compat.StreamInfo;
 import org.jellyfin.androidtv.preference.UserPreferences;
+import org.jellyfin.androidtv.preference.constant.PlaybackEngine;
 import org.jellyfin.androidtv.preference.constant.ZoomMode;
+import org.videolan.libvlc.util.VLCVideoLayout;
 import org.jellyfin.sdk.api.client.ApiClient;
 import org.jellyfin.sdk.model.api.MediaStream;
 import org.jellyfin.sdk.model.api.MediaStreamType;
@@ -82,6 +86,8 @@ public class VideoManager {
     private PlaybackOverlayFragmentHelper _helper;
     public ExoPlayer mExoPlayer;
     private PlayerView mExoPlayerView;
+    private VlcVideoEngine vlcEngine;
+    private View videoSurface;
     private Handler mHandler = new Handler();
 
     private long mMetaDuration = -1;
@@ -99,6 +105,16 @@ public class VideoManager {
         mActivity = activity;
         _helper = helper;
         nightModeEnabled = userPreferences.get(UserPreferences.Companion.getAudioNightMode());
+
+        mExoPlayerView = view.findViewById(R.id.exoPlayerView);
+        VLCVideoLayout vlcLayout = view.findViewById(R.id.vlc_video_layout);
+        if (userPreferences.get(UserPreferences.Companion.getPlaybackEngine()) == PlaybackEngine.VLC && vlcLayout != null) {
+            mExoPlayerView.setVisibility(View.GONE);
+            vlcLayout.setVisibility(View.VISIBLE);
+            vlcEngine = new VlcVideoEngine(activity, vlcLayout, helper);
+            videoSurface = vlcLayout;
+            return;
+        }
 
         boolean assDirectPlay = userPreferences.get(UserPreferences.Companion.getAssDirectPlay());
         AssHandler assHandler = assDirectPlay ? new AssHandler(AssRenderType.OVERLAY_OPEN_GL, new AssHandlerConfig()) : null;
@@ -119,8 +135,8 @@ public class VideoManager {
             });
         }
 
-        mExoPlayerView = view.findViewById(R.id.exoPlayerView);
         mExoPlayerView.setPlayer(mExoPlayer);
+        videoSurface = mExoPlayerView;
         int strokeColor = userPreferences.get(UserPreferences.Companion.getSubtitleTextStrokeColor()).intValue();
         int textWeight = userPreferences.get(UserPreferences.Companion.getSubtitlesTextWeight());
         CaptionStyleCompat subtitleStyle = new CaptionStyleCompat(
@@ -207,6 +223,11 @@ public class VideoManager {
 
     public void subscribe(@NonNull PlaybackControllerNotifiable notifier) {
         mPlaybackControllerNotifiable = notifier;
+        if (vlcEngine != null) vlcEngine.subscribe(notifier);
+    }
+
+    public boolean isUsingVlc() {
+        return vlcEngine != null;
     }
 
     private int determineExoPlayerExtensionRendererMode() {
@@ -271,7 +292,7 @@ public class VideoManager {
     }
 
     public boolean isInitialized() {
-        return mExoPlayer != null;
+        return vlcEngine != null || mExoPlayer != null;
     }
 
     public @NonNull ZoomMode getZoomMode() {
@@ -280,6 +301,10 @@ public class VideoManager {
 
     public void setZoom(@NonNull ZoomMode mode) {
         mZoomMode = mode;
+        if (vlcEngine != null) {
+            vlcEngine.setZoom(mode);
+            return;
+        }
         switch (mode) {
             case FIT:
                 mExoPlayerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
@@ -298,11 +323,15 @@ public class VideoManager {
     }
 
     public long getDuration() {
+        if (vlcEngine != null) {
+            long duration = vlcEngine.getDuration();
+            return duration > 0 ? duration : mMetaDuration;
+        }
         return isInitialized() && mExoPlayer.getDuration() > 0 ? mExoPlayer.getDuration() : mMetaDuration;
     }
 
     public long getBufferedPosition() {
-        if (!isInitialized())
+        if (!isInitialized() || vlcEngine != null)
             return -1;
 
         long bufferedPosition = mExoPlayer.getBufferedPosition();
@@ -314,6 +343,7 @@ public class VideoManager {
     }
 
     public long getCurrentPosition() {
+        if (vlcEngine != null) return vlcEngine.getCurrentPosition();
         if (mExoPlayer == null || !isPlaying()) {
             return lastExoPlayerPosition == -1 ? 0 : lastExoPlayerPosition;
         } else {
@@ -324,29 +354,49 @@ public class VideoManager {
     }
 
     public boolean isPlaying() {
-        return mExoPlayer.isPlaying();
+        if (vlcEngine != null) return vlcEngine.isPlaying();
+        return mExoPlayer != null && mExoPlayer.isPlaying();
     }
 
     public void start() {
+        if (vlcEngine != null) {
+            vlcEngine.start();
+            normalWidth = videoSurface.getLayoutParams().width;
+            normalHeight = videoSurface.getLayoutParams().height;
+            return;
+        }
         if (mExoPlayer == null) {
             Timber.e("mExoPlayer should not be null!!");
             _helper.getFragment().closePlayer();
             return;
         }
         mExoPlayer.setPlayWhenReady(true);
-        normalWidth = mExoPlayerView.getLayoutParams().width;
-        normalHeight = mExoPlayerView.getLayoutParams().height;
+        normalWidth = videoSurface.getLayoutParams().width;
+        normalHeight = videoSurface.getLayoutParams().height;
     }
 
     public void play() {
+        if (vlcEngine != null) {
+            vlcEngine.play();
+            return;
+        }
         mExoPlayer.setPlayWhenReady(true);
     }
 
     public void pause() {
+        if (vlcEngine != null) {
+            vlcEngine.pause();
+            return;
+        }
         mExoPlayer.setPlayWhenReady(false);
     }
 
     public void stopPlayback() {
+        if (vlcEngine != null) {
+            vlcEngine.stop();
+            stopProgressLoop();
+            return;
+        }
         if (mExoPlayer != null) {
             mExoPlayer.stop();
 
@@ -362,6 +412,7 @@ public class VideoManager {
     public boolean isSeekable() {
         if (!isInitialized())
             return false;
+        if (vlcEngine != null) return vlcEngine.isSeekable();
 
         boolean canSeek = mExoPlayer.isCurrentMediaItemSeekable();
         Timber.d("current media item is%s seekable", canSeek ? "" : " not");
@@ -371,6 +422,7 @@ public class VideoManager {
     public long seekTo(long pos) {
         if (!isInitialized())
             return -1;
+        if (vlcEngine != null) return vlcEngine.seekTo(pos);
 
         Timber.i("Exo length in seek is: %d", getDuration());
         mExoPlayer.seekTo(pos);
@@ -391,6 +443,24 @@ public class VideoManager {
             return;
         }
         Timber.i("Video path set to: %s", path);
+
+        if (vlcEngine != null) {
+            liveStream = ChannelFlowStream.INSTANCE.isLive(path);
+            ChannelFlowChannel channel = null;
+            if (streamInfo.getItemId() != null) {
+                ChannelFlowGuideRepository catalog = KoinJavaComponent.get(ChannelFlowGuideRepository.class);
+                channel = catalog.findChannel(streamInfo.getItemId());
+            }
+            vlcEngine.setMedia(
+                    path,
+                    liveStream,
+                    channel != null ? channel.getName() : null,
+                    channel != null ? channel.getId() : streamInfo.getItemId(),
+                    channel != null ? channel.getNumber() : null,
+                    channel != null ? channel.getLogoUrl() : null
+            );
+            return;
+        }
 
         try {
             // Add external subtitles
@@ -453,7 +523,7 @@ public class VideoManager {
     }
 
     public int getExoPlayerTrack(@Nullable org.jellyfin.sdk.model.api.MediaStreamType streamType, @Nullable List<org.jellyfin.sdk.model.api.MediaStream> allStreams) {
-        if (!isInitialized() || streamType == null || allStreams == null)
+        if (vlcEngine != null || !isInitialized() || streamType == null || allStreams == null)
             return -1;
         if (streamType != org.jellyfin.sdk.model.api.MediaStreamType.SUBTITLE && streamType != org.jellyfin.sdk.model.api.MediaStreamType.AUDIO)
             return -1;
@@ -501,7 +571,7 @@ public class VideoManager {
     }
 
     public boolean setExoPlayerTrack(int index, @Nullable org.jellyfin.sdk.model.api.MediaStreamType streamType, @Nullable List<org.jellyfin.sdk.model.api.MediaStream> allStreams) {
-        if (!isInitialized() || allStreams == null || allStreams.isEmpty() || streamType != org.jellyfin.sdk.model.api.MediaStreamType.SUBTITLE && streamType != org.jellyfin.sdk.model.api.MediaStreamType.AUDIO)
+        if (vlcEngine != null || !isInitialized() || allStreams == null || allStreams.isEmpty() || streamType != org.jellyfin.sdk.model.api.MediaStreamType.SUBTITLE && streamType != org.jellyfin.sdk.model.api.MediaStreamType.AUDIO)
             return false;
 
         int chosenTrackType = streamType == org.jellyfin.sdk.model.api.MediaStreamType.SUBTITLE ? C.TRACK_TYPE_TEXT : C.TRACK_TYPE_AUDIO;
@@ -588,6 +658,7 @@ public class VideoManager {
     }
 
     public float getPlaybackSpeed() {
+        if (vlcEngine != null) return vlcEngine.getPlaybackSpeed();
         if (!isInitialized()) {
             return 1.0f;
         } else {
@@ -602,6 +673,10 @@ public class VideoManager {
         }
         Timber.d("Setting playback speed: %f", speed);
 
+        if (vlcEngine != null) {
+            vlcEngine.setPlaybackSpeed(speed);
+            return;
+        }
         mExoPlayer.setPlaybackParameters(new PlaybackParameters(speed));
     }
 
@@ -613,6 +688,10 @@ public class VideoManager {
 
     private void releasePlayer() {
         _helper.setScreensaverLock(false);
+        if (vlcEngine != null) {
+            vlcEngine.release();
+            vlcEngine = null;
+        }
         if (mExoPlayer != null) {
             mExoPlayerView.setPlayer(null);
             mExoPlayer.release();
@@ -624,7 +703,7 @@ public class VideoManager {
     int normalHeight;
 
     public void contractVideo(int height) {
-        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) mExoPlayerView.getLayoutParams();
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) videoSurface.getLayoutParams();
         if (isContracted) return;
 
         int sw = mActivity.getWindow().getDecorView().getWidth();
@@ -635,15 +714,15 @@ public class VideoManager {
         lp.rightMargin = ((lp.width - normalWidth) / 2) - 110;
         lp.bottomMargin = ((lp.height - normalHeight) / 2) - 50;
 
-        mExoPlayerView.setLayoutParams(lp);
-        mExoPlayerView.invalidate();
+        videoSurface.setLayoutParams(lp);
+        videoSurface.invalidate();
 
         isContracted = true;
     }
 
     public void setVideoFullSize(boolean force) {
         if (normalHeight == 0) return;
-        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) mExoPlayerView.getLayoutParams();
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) videoSurface.getLayoutParams();
         if (force) {
             lp.height = -1;
             lp.width = -1;
@@ -654,8 +733,8 @@ public class VideoManager {
 
         lp.rightMargin = 0;
         lp.bottomMargin = 0;
-        mExoPlayerView.setLayoutParams(lp);
-        mExoPlayerView.invalidate();
+        videoSurface.setLayoutParams(lp);
+        videoSurface.invalidate();
 
         isContracted = false;
     }
