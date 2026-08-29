@@ -33,7 +33,7 @@ class TitleView @JvmOverloads constructor(
 		direction: Int,
 		previouslyFocusedRect: Rect?
 	): Boolean {
-		if (binding.toolbarActions.homeButton.requestFocus()) return true
+		if (binding.toolbarActions.refreshButton.requestFocus()) return true
 
 		return super.onRequestFocusInDescendants(direction, previouslyFocusedRect)
 	}

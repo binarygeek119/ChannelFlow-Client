@@ -615,7 +615,7 @@
     <string name="speech_error_unknown">An unexpected error occurred during speech recognition.</string>
     <string name="still_watching_label">Are you still watching?</string>
     <string name="settings">Settings</string>
-    <string name="settings_description">Switch servers, playback, and about</string>
+    <string name="settings_description">Switch servers, playback, updates, and about</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="pref_playback_next_up">Next up</string>
     <string name="pref_playback_media_segments">Media segments</string>

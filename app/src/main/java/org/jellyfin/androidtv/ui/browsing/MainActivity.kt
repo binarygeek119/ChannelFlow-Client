@@ -12,12 +12,8 @@ import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.channelflow.ChannelFlowReminder
 import org.jellyfin.androidtv.channelflow.ChannelFlowReminderScheduler
-import org.jellyfin.androidtv.channelflow.ChannelFlowUpdateChecker
-import org.jellyfin.androidtv.channelflow.ChannelFlowUpdatePrompt
-import org.jellyfin.androidtv.channelflow.ChannelFlowUpdateStatus
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
 import org.jellyfin.androidtv.ui.background.AppBackground
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
@@ -40,10 +36,8 @@ class MainActivity : FragmentActivity() {
 	private val interactionTrackerViewModel by viewModel<InteractionTrackerViewModel>()
 	private val liveTvStartup by inject<LiveTvStartup>()
 	private val reminders by inject<ChannelFlowReminderScheduler>()
-	private val updater by inject<ChannelFlowUpdateChecker>()
 	private val playbackHelper by inject<PlaybackHelper>()
 	private val playbackControllerContainer by inject<PlaybackControllerContainer>()
-	private var launchUpdatePrompted = false
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		applyTheme()
@@ -86,15 +80,6 @@ class MainActivity : FragmentActivity() {
 			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
 			.onEach { reminder -> if (reminder != null) showWatchReminder(reminder) }
 			.launchIn(lifecycleScope)
-
-		updater.status
-			.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED)
-			.onEach { status -> maybeShowLaunchUpdate(status) }
-			.launchIn(lifecycleScope)
-
-		if (savedInstanceState == null) {
-			lifecycleScope.launch { updater.check() }
-		}
 	}
 
 	override fun onResume() {
@@ -129,33 +114,6 @@ class MainActivity : FragmentActivity() {
 
 	override fun onKeyLongPress(keyCode: Int, event: KeyEvent?): Boolean =
 		onKeyEvent(keyCode, event) || super.onKeyUp(keyCode, event)
-
-	private fun maybeShowLaunchUpdate(status: ChannelFlowUpdateStatus) {
-		if (launchUpdatePrompted) return
-		val available = status as? ChannelFlowUpdateStatus.Available ?: return
-		if (available.apkUrl.isNullOrBlank()) return
-		if (!updater.shouldPromptLaunch(available.latest)) {
-			launchUpdatePrompted = true
-			return
-		}
-		if (ProgramReminderPrompt.isShowing() || ChannelFlowUpdatePrompt.isShowing()) return
-		if (playbackControllerContainer.playbackController?.isPlaying == true) return
-
-		launchUpdatePrompted = true
-		ProgramDetailDialog.dismiss()
-		ChannelFlowUpdatePrompt.show(
-			activity = this,
-			available = available,
-			onInstall = {
-				if (updater.needsInstallPermission()) {
-					runCatching { startActivity(updater.installPermissionIntent()) }
-				} else {
-					updater.startInstall(this)
-				}
-			},
-			onLater = { updater.dismissLaunchPrompt(it.latest) },
-		)
-	}
 
 	private fun showWatchReminder(reminder: ChannelFlowReminder) {
 		val playingChannel = playbackControllerContainer.playbackController?.currentlyPlayingItem

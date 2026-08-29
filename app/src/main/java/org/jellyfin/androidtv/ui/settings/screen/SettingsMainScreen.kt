@@ -4,12 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import org.jellyfin.androidtv.BuildConfig
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.channelflow.ChannelFlowConnectionStore
+import org.jellyfin.androidtv.channelflow.ChannelFlowVersion
 import org.jellyfin.androidtv.channelflow.startChannelFlowPairing
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.Text
@@ -84,15 +85,14 @@ fun SettingsMainScreen() {
 		}
 
 		item {
+			ChannelFlowUpdateSettingsButton()
+		}
+
+		item {
 			ListButton(
-				leadingContent = {
-					Icon(
-						painter = painterResource(R.drawable.app_icon_foreground),
-						contentDescription = null,
-						tint = Color.Unspecified,
-					)
-				},
+				leadingContent = { Icon(painterResource(R.drawable.ic_info), contentDescription = null) },
 				headingContent = { Text(stringResource(R.string.pref_about_title)) },
+				captionContent = { Text(ChannelFlowVersion.display(BuildConfig.VERSION_NAME)) },
 				onClick = { router.push(Routes.ABOUT) },
 				modifier = Modifier.focusKey(Routes.ABOUT),
 			)

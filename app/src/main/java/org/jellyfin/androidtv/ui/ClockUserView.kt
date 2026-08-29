@@ -44,14 +44,10 @@ class ClockUserView @JvmOverloads constructor(
 			updateClockVisibility()
 		}
 
-	val homeButton get() = binding.home
+	val refreshButton get() = binding.refreshGuide
 
 	init {
 		updateClockVisibility()
-
-		binding.home.setOnClickListener {
-			navigationRepository.reset(Destinations.liveTvGuide, clearHistory = true)
-		}
 
 		binding.refreshGuide.setOnClickListener {
 			refreshGuide()
@@ -93,7 +89,6 @@ class ClockUserView @JvmOverloads constructor(
 			ClockBehavior.IN_MENUS -> !isVideoPlayer
 		}
 
-		binding.home.isVisible = !isVideoPlayer
 		binding.refreshGuide.isVisible = !isVideoPlayer
 		binding.settings.isVisible = !isVideoPlayer
 	}
