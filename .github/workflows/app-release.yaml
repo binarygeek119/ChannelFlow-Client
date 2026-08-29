@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version without a v prefix (for example 0.0.6). Leave empty to use the tag or 0.0.6.
+        description: Release version without a v prefix (for example 0.0.7). Leave empty to use the tag or 0.0.7.
         required: false
         type: string
       create_github_release:
@@ -47,7 +47,7 @@ jobs:
           elif [ "$REF_TYPE" = "tag" ]; then
             version="$REF_NAME"
           else
-            version="0.0.6"
+            version="0.0.7"
           fi
           version="${version#v}"
           echo "name=$version" >> "$GITHUB_OUTPUT"
@@ -76,7 +76,7 @@ jobs:
             echo "KEYSTORE_FILE=${GITHUB_WORKSPACE}/keystore.jks" >> "$GITHUB_ENV"
             echo "Using release keystore from secrets."
           else
-            echo "No KEYSTORE secret. Release APK will be signed with the debug key."
+            echo "No KEYSTORE secret. Release APK will use keystore/channelflow-release.jks."
           fi
 
       - name: Assemble release APK
