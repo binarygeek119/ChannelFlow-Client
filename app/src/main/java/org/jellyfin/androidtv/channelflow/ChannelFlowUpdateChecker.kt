@@ -23,6 +23,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jellyfin.androidtv.BuildConfig
+import org.jellyfin.androidtv.R
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -208,11 +209,25 @@ class ChannelFlowUpdateChecker(
 	}
 
 	fun openInstaller(activity: Activity, file: File): Boolean {
+		when (updateCompatibility(file)) {
+			ChannelFlowUpdateCompat.SignatureMismatch -> {
+				onInstallFailed(activity.getString(R.string.msg_update_signature_mismatch))
+				return false
+			}
+			ChannelFlowUpdateCompat.PackageMismatch -> {
+				onInstallFailed(activity.getString(R.string.msg_update_package_mismatch))
+				return false
+			}
+			ChannelFlowUpdateCompat.Compatible -> Unit
+		}
 		if (openSystemInstaller(activity, file)) return true
 		return runCatching { commitInstall(activity, file) }
 			.onFailure { Timber.e(it, "PackageInstaller session failed") }
 			.isSuccess
 	}
+
+	internal fun updateCompatibility(file: File): ChannelFlowUpdateCompat =
+		apkUpdateCompatibility(app, file)
 
 	private fun openSystemInstaller(activity: Activity, file: File): Boolean {
 		val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.update", file)
@@ -321,6 +336,71 @@ class ChannelFlowUpdateChecker(
 		private const val DEFAULT_BUFFER = 64 * 1024
 		private val USER_AGENT = "ChannelFlow-TV/${BuildConfig.VERSION_NAME} (+https://github.com/$GITHUB_REPO)"
 	}
+}
+
+internal enum class ChannelFlowUpdateCompat {
+	Compatible,
+	SignatureMismatch,
+	PackageMismatch,
+}
+
+internal fun apkUpdateCompatibility(context: Context, file: File): ChannelFlowUpdateCompat {
+	val archive = packageArchiveInfo(context.packageManager, file) ?: return ChannelFlowUpdateCompat.Compatible
+	if (archive.packageName != context.packageName) return ChannelFlowUpdateCompat.PackageMismatch
+	val installed = runCatching {
+		packageInfo(context.packageManager, context.packageName)
+	}.getOrNull() ?: return ChannelFlowUpdateCompat.Compatible
+	val installedCerts = signingCerts(installed)
+	val updateCerts = signingCerts(archive)
+	if (installedCerts.isEmpty() || updateCerts.isEmpty()) return ChannelFlowUpdateCompat.Compatible
+	val matches = installedCerts.any { installedCert ->
+		updateCerts.any { it.contentEquals(installedCert) }
+	}
+	return if (matches) ChannelFlowUpdateCompat.Compatible else ChannelFlowUpdateCompat.SignatureMismatch
+}
+
+private fun packageArchiveInfo(packageManager: PackageManager, file: File): android.content.pm.PackageInfo? {
+	val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+		packageManager.getPackageArchiveInfo(file.absolutePath, PackageManager.PackageInfoFlags.of(signingFlags().toLong()))
+	} else {
+		@Suppress("DEPRECATION")
+		packageManager.getPackageArchiveInfo(file.absolutePath, signingFlags())
+	} ?: return null
+	info.applicationInfo?.apply {
+		sourceDir = file.absolutePath
+		publicSourceDir = file.absolutePath
+	}
+	return info
+}
+
+private fun packageInfo(packageManager: PackageManager, packageName: String): android.content.pm.PackageInfo =
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+		packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(signingFlags().toLong()))
+	} else {
+		@Suppress("DEPRECATION")
+		packageManager.getPackageInfo(packageName, signingFlags())
+	}
+
+private fun signingFlags(): Int =
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+		PackageManager.GET_SIGNING_CERTIFICATES
+	} else {
+		@Suppress("DEPRECATION")
+		PackageManager.GET_SIGNATURES
+	}
+
+private fun signingCerts(info: android.content.pm.PackageInfo): List<ByteArray> {
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+		val signingInfo = info.signingInfo ?: return emptyList()
+		val signers = if (signingInfo.hasMultipleSigners()) {
+			signingInfo.apkContentsSigners
+		} else {
+			signingInfo.signingCertificateHistory
+		}
+		return signers.orEmpty().map { it.toByteArray() }
+	}
+	@Suppress("DEPRECATION")
+	return info.signatures.orEmpty().map { it.toByteArray() }
 }
 
 internal fun pickApkAsset(assets: List<GithubAsset>, preferDebug: Boolean): GithubAsset? {

@@ -47,7 +47,8 @@ class ChannelFlowUpdateInstallActivity : FragmentActivity() {
 					is ChannelFlowUpdateStatus.Downloading ->
 						getString(R.string.lbl_downloading_update, status.progress)
 					is ChannelFlowUpdateStatus.Failed ->
-						getString(R.string.lbl_update_install_failed)
+						status.reason?.takeIf { it.isNotBlank() }
+							?: getString(R.string.lbl_update_install_failed)
 					else -> getString(R.string.lbl_installing_update)
 				}
 			}

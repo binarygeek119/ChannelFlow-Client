@@ -28,6 +28,8 @@
     <string name="lbl_update_no_apk">Update found, but no APK is attached to the GitHub release</string>
     <string name="lbl_allow_unknown_sources">Allow ChannelFlow TV to install updates</string>
     <string name="lbl_update_install_failed">Could not install the update</string>
+    <string name="msg_update_signature_mismatch">This update cannot replace the app already installed. Uninstall ChannelFlow TV, keep app data if asked, then install the new APK.</string>
+    <string name="msg_update_package_mismatch">This APK is a different ChannelFlow TV package. Uninstall the copy you are replacing, then install the new APK.</string>
     <string name="lbl_update_ready">Update available</string>
     <string name="msg_update_ready">ChannelFlow TV %1$s is ready to install. You have %2$s.</string>
     <string name="lbl_install_now">Install now</string>

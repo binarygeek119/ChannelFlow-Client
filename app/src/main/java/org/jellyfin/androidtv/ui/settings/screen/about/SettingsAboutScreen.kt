@@ -91,8 +91,7 @@ fun SettingsAboutScreen(launchedFromLogin: Boolean = false) {
 				is ChannelFlowUpdateStatus.Installing ->
 					stringResource(R.string.lbl_installing_update)
 				is ChannelFlowUpdateStatus.Failed ->
-					status.reason?.takeIf { it.contains("install", ignoreCase = true) }
-						?.let { stringResource(R.string.lbl_update_install_failed) }
+					status.reason?.takeIf { it.isNotBlank() }
 						?: stringResource(R.string.lbl_update_check_failed)
 			}
 			val heading = when (val status = updateStatus) {

@@ -5,6 +5,17 @@ plugins {
 	alias(libs.plugins.kotlin.serialization)
 }
 
+val defaultReleaseKeystore = rootProject.file("keystore/channelflow-release.jks")
+val releaseKeystoreFile = run {
+	val configured = getProperty("keystore.file")
+	if (configured.isNullOrBlank()) {
+		defaultReleaseKeystore
+	} else {
+		val fromModule = file(configured)
+		if (fromModule.isFile) fromModule else rootProject.file(configured)
+	}
+}
+
 android {
 	namespace = "org.jellyfin.androidtv"
 	compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -15,7 +26,7 @@ android {
 
 		// Release version
 		applicationId = namespace
-		versionName = project.getVersionName("0.0.6")
+		versionName = project.getVersionName("0.0.7")
 		versionCode = getVersionCode(versionName!!)
 	}
 
@@ -37,17 +48,12 @@ android {
 	}
 
 	signingConfigs {
-		val keystoreFile = getProperty("keystore.file")
-		val keystorePassword = getProperty("keystore.password")
-		val signingKeyAlias = getProperty("signing.key.alias")
-		val signingKeyPassword = getProperty("signing.key.password")
-
-		if (keystoreFile != null && keystorePassword != null && signingKeyAlias != null && signingKeyPassword != null) {
+		if (releaseKeystoreFile.isFile) {
 			create("release") {
-				storeFile = file(keystoreFile)
-				storePassword = keystorePassword
-				keyAlias = signingKeyAlias
-				keyPassword = signingKeyPassword
+				storeFile = releaseKeystoreFile
+				storePassword = getProperty("keystore.password") ?: "ChannelFlowTvSideload2026"
+				keyAlias = getProperty("signing.key.alias") ?: "channelflow"
+				keyPassword = getProperty("signing.key.password") ?: "ChannelFlowTvSideload2026"
 			}
 		}
 	}
