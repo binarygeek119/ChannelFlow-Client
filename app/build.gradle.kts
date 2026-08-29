@@ -15,7 +15,7 @@ android {
 
 		// Release version
 		applicationId = namespace
-		versionName = project.getVersionName("0.0.3")
+		versionName = project.getVersionName("0.0.4")
 		versionCode = getVersionCode(versionName!!)
 	}
 
