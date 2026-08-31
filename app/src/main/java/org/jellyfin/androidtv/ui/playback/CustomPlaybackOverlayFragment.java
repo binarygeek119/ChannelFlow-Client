@@ -722,8 +722,6 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             Timber.i("this fragment belongs to the current session, ending it");
             playbackControllerContainer.getValue().getPlaybackController().endPlayback();
         }
-
-        closePlayer();
     }
 
     public void show() {

@@ -25,4 +25,10 @@ class ChannelFlowClientLogsTests : FunSpec({
 		ChannelFlowClientLogs.levelName(6) shouldBe "error"
 		ChannelFlowClientLogs.levelName(7) shouldBe "assert"
 	}
+
+	test("redacts api keys in stream URLs and log text") {
+		val url = "https://tv.example.com/iptv/stream/abc?apiKey=super-secret-key"
+		ChannelFlowClientLogs.redactSecrets(url) shouldBe "https://tv.example.com/iptv/stream/abc?apiKey=***"
+		ChannelFlowClientLogs.sanitizeText("X-Api-Key: super-secret-key", 200) shouldBe "X-Api-Key: ***"
+	}
 })

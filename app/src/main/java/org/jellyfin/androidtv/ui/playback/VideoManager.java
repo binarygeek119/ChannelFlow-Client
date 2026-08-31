@@ -48,6 +48,7 @@ import androidx.media3.ui.PlayerView;
 
 import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.channelflow.ChannelFlowChannel;
+import org.jellyfin.androidtv.channelflow.ChannelFlowClientLogs;
 import org.jellyfin.androidtv.channelflow.ChannelFlowConnectionStore;
 import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository;
 import org.jellyfin.androidtv.channelflow.ChannelFlowStream;
@@ -443,7 +444,7 @@ public class VideoManager {
             Timber.w("Video path is null cannot continue");
             return;
         }
-        Timber.i("Video path set to: %s", path);
+        Timber.i("Video path set to: %s", ChannelFlowClientLogs.redactSecrets(path));
 
         if (vlcEngine != null) {
             liveStream = ChannelFlowStream.INSTANCE.isLive(path);

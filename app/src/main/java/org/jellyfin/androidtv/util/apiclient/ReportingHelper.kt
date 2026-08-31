@@ -24,6 +24,8 @@ class ReportingHelper(
 	private val dataRefreshService: DataRefreshService,
 	private val api: ApiClient,
 ) {
+	private fun canReportToJellyfin(): Boolean = !api.baseUrl.isNullOrBlank()
+
 	fun reportStart(
 		lifecycleOwner: LifecycleOwner,
 		playbackController: PlaybackController?,
@@ -32,6 +34,8 @@ class ReportingHelper(
 		position: Long,
 		paused: Boolean
 	) {
+		if (!canReportToJellyfin()) return
+
 		val info = PlaybackStartInfo(
 			itemId = item.id,
 			positionTicks = position,
@@ -64,6 +68,8 @@ class ReportingHelper(
 		position: Long,
 		paused: Boolean
 	) {
+		if (!canReportToJellyfin()) return
+
 		val info = PlaybackProgressInfo(
 			itemId = item.id,
 			positionTicks = position,
@@ -89,23 +95,24 @@ class ReportingHelper(
 	}
 
 	fun reportStopped(lifecycleOwner: LifecycleOwner, item: BaseItemDto, streamInfo: StreamInfo, position: Long?) {
-		val info = PlaybackStopInfo(
-			itemId = item.id,
-			positionTicks = position,
-			mediaSourceId = streamInfo.mediaSourceId,
-			liveStreamId = streamInfo.mediaSource?.liveStreamId,
-			playSessionId = streamInfo.playSessionId,
-			failed = false,
-		)
+		if (canReportToJellyfin()) {
+			val info = PlaybackStopInfo(
+				itemId = item.id,
+				positionTicks = position,
+				mediaSourceId = streamInfo.mediaSourceId,
+				liveStreamId = streamInfo.mediaSource?.liveStreamId,
+				playSessionId = streamInfo.playSessionId,
+				failed = false,
+			)
 
-		lifecycleOwner.lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
-			Timber.i("Reporting ${item.name} playback stopped at $position")
-			runCatching {
-				api.playStateApi.reportPlaybackStopped(info)
-			}.onFailure { error -> Timber.e(error, "Failed to report stopped playback!") }
+			lifecycleOwner.lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+				Timber.i("Reporting ${item.name} playback stopped at $position")
+				runCatching {
+					api.playStateApi.reportPlaybackStopped(info)
+				}.onFailure { error -> Timber.e(error, "Failed to report stopped playback!") }
+			}
 		}
 
-		// Update dataRefreshService
 		dataRefreshService.lastPlayback = Instant.now()
 		when (item.type) {
 			BaseItemKind.MOVIE -> dataRefreshService.lastMoviePlayback = Instant.now()

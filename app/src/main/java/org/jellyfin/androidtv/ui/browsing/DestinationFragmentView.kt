@@ -147,20 +147,28 @@ class DestinationFragmentView @JvmOverloads constructor(
 			setReorderingAllowed(true)
 			setCustomAnimations(R.anim.fade_in, R.anim.fade_out, R.anim.fade_in, R.anim.fade_out)
 
-			// Detach current fragment
-			fragmentManager.findFragmentByTag(FRAGMENT_TAG_CONTENT)?.let(::detach)
+			val current = fragmentManager.findFragmentByTag(FRAGMENT_TAG_CONTENT)
+			if (current != null && current !== fragment) {
+				detach(current)
+			}
 
-			// Attach or add next fragment
-			if (fragment.isDetached) attach(fragment)
-			else replace(container.id, fragment, FRAGMENT_TAG_CONTENT)
+			when {
+				fragment.isDetached -> attach(fragment)
+				fragment.isAdded -> Unit
+				else -> replace(container.id, fragment, FRAGMENT_TAG_CONTENT)
+			}
 		}
 
-		if (fragmentManager.isDestroyed) {
-			Timber.w("FragmentManager is already destroyed")
-		} else if (fragmentManager.isStateSaved) {
-			transaction.commitAllowingStateLoss()
-		} else {
-			transaction.commit()
+		try {
+			if (fragmentManager.isDestroyed) {
+				Timber.w("FragmentManager is already destroyed")
+			} else if (fragmentManager.isStateSaved) {
+				transaction.commitAllowingStateLoss()
+			} else {
+				transaction.commit()
+			}
+		} catch (error: IllegalStateException) {
+			Timber.w(error, "Unable to activate fragment")
 		}
 	}
 
