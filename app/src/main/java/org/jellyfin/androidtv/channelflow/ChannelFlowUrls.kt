@@ -39,4 +39,6 @@ object ChannelFlowUrls {
 			append(path.trimEnd('/'))
 		}
 	}
+
+	fun clientLogsUrl(baseUrl: String): String = ChannelFlowClientLogs.ingestUrl(baseUrl)
 }

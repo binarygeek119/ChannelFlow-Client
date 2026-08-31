@@ -29,6 +29,7 @@ import org.jellyfin.androidtv.data.service.BackgroundService
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
 import org.jellyfin.androidtv.channelflow.ChannelFlowConnectionStore
 import org.jellyfin.androidtv.channelflow.ChannelFlowGuideRepository
+import org.jellyfin.androidtv.channelflow.ChannelFlowLogShipper
 import org.jellyfin.androidtv.channelflow.ChannelFlowPairClient
 import org.jellyfin.androidtv.channelflow.ChannelFlowReminderScheduler
 import org.jellyfin.androidtv.channelflow.ChannelFlowUpdateChecker
@@ -134,6 +135,7 @@ val appModule = module {
 
 	single { ChannelFlowConnectionStore(androidContext()) }
 	single { ChannelFlowPairClient() }
+	single { ChannelFlowLogShipper(androidContext(), get()) }
 	single { ChannelFlowGuideRepository(get(), get()) }
 	single { ChannelFlowUpdateChecker(androidContext()) }
 	single { ChannelFlowReminderScheduler(androidContext()) }
