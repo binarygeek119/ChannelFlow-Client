@@ -45,7 +45,10 @@ class M3uParserTests : FunSpec({
 		playlist.shouldStartWith("#EXTM3U")
 		playlist.contains("tvg-id=\"11111111222233334444555555555555\"") shouldBe true
 		playlist.contains("#EXTVLCOPT:http-user-agent=ChannelFlow-TV") shouldBe true
+		playlist.contains("#EXTVLCOPT:network-caching=${ChannelFlowVlcPlaylist.START_CACHING_MS}") shouldBe true
+		playlist.contains("#EXTVLCOPT:prefetch-buffer-size=${ChannelFlowVlcPlaylist.PREFETCH_BUFFER_KIB}") shouldBe true
 		playlist.contains("#EXTVLCOPT:http-header=X-Api-Key: secret") shouldBe true
+		ChannelFlowVlcPlaylist.PREFETCH_BUFFER_KIB shouldBe 600 * 1024
 		playlist.contains("https://server/iptv/stream/11111111222233334444555555555555?apiKey=secret") shouldBe true
 		M3uParser.parse(playlist).shouldHaveSize(1)
 		M3uParser.parse(playlist)[0].name shouldBe "News"

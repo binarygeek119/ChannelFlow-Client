@@ -53,8 +53,6 @@ class PlaybackLauncher(
 
 		if (userPreferences[UserPreferences.useExternalPlayer] && items.all { it.supportsExternalPlayer }) {
 			context.startActivity(ActivityDestinations.externalPlayer(context, position?.milliseconds ?: Duration.ZERO))
-		} else if (userPreferences[UserPreferences.playbackRewriteVideoEnabled]) {
-			navigationRepository.navigate(Destinations.videoPlayerNew(position), replace)
 		} else {
 			navigationRepository.navigate(Destinations.videoPlayer(position), replace)
 		}

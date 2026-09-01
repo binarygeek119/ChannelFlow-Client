@@ -1,10 +1,6 @@
 package org.jellyfin.androidtv.ui.playback
 
-import androidx.annotation.OptIn
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.C
-import androidx.media3.common.TrackSelectionOverride
-import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -34,38 +30,24 @@ fun PlaybackController.getLiveTvChannel(
 	}
 }
 
-@OptIn(UnstableApi::class)
 fun PlaybackController.disableDefaultSubtitles() {
 	Timber.i("Disabling non-baked subtitles")
-	if (mVideoManager.mExoPlayer == null) return
-
-	with(mVideoManager.mExoPlayer.trackSelector!!) {
-		parameters = parameters.buildUpon()
-			.clearOverridesOfType(C.TRACK_TYPE_TEXT)
-			.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-			.build()
-	}
 }
 
-@OptIn(UnstableApi::class)
 @JvmOverloads
 fun PlaybackController.setSubtitleIndex(index: Int, force: Boolean = false) {
 	Timber.i("Switching subtitles from index ${mCurrentOptions.subtitleStreamIndex} to $index")
 
-	// Already using this subtitle index
 	if (mCurrentOptions.subtitleStreamIndex == index && !force) return
 
-	// Save subtitle language preference for restoration after NextUp screen
 	val videoQueueManager by fragment.inject<VideoQueueManager>()
 	if (index == -1) {
-		// Use empty string to indicate "subtitles explicitly disabled" vs null meaning "no preference"
 		videoQueueManager.setLastPlayedSubtitleLanguageIsoCode("")
 	} else {
 		val stream = currentMediaSource.mediaStreams?.firstOrNull { it.type == MediaStreamType.SUBTITLE && it.index == index }
 		videoQueueManager.setLastPlayedSubtitleLanguageIsoCode(stream?.language)
 	}
 
-	// Disable subtitles
 	if (index == -1) {
 		mCurrentOptions.subtitleStreamIndex = -1
 
@@ -75,14 +57,10 @@ fun PlaybackController.setSubtitleIndex(index: Int, force: Boolean = false) {
 			stop()
 			burningSubs = false
 			play(mCurrentPosition, -1)
-		} else {
-			disableDefaultSubtitles()
 		}
 	} else if (burningSubs) {
 		Timber.i("Restarting playback to disable subtitle baking")
 
-		// If we're currently burning subs and want to switch streams we need some special behavior
-		// to stop the current baked subs. We can just stop & start with the new subtitle index for that
 		stop()
 		burningSubs = false
 		mCurrentOptions.subtitleStreamIndex = index
@@ -108,51 +86,7 @@ fun PlaybackController.setSubtitleIndex(index: Int, force: Boolean = false) {
 			stream.deliveryMethod == SubtitleDeliveryMethod.EXTERNAL ||
 				stream.deliveryMethod == SubtitleDeliveryMethod.EMBED ||
 				stream.deliveryMethod == SubtitleDeliveryMethod.HLS -> {
-				if (mVideoManager.mExoPlayer == null) {
-					mCurrentOptions.subtitleStreamIndex = index
-					return
-				}
-				// External subtitles need to be resolved differently
-				val group = if (stream.deliveryMethod == SubtitleDeliveryMethod.EXTERNAL) {
-					mVideoManager.mExoPlayer.currentTracks.groups.firstOrNull { group ->
-						// Verify this is a group with a single format (the subtitles) that is added by us. Because ExoPlayer uses a
-						// MergingMediaSource, each external subtitle format id is prefixed with its source index (normally starting at 1,
-						// increasing for each external subttitle). So we only check the end of the id
-						group.length == 1 && group.getTrackFormat(0).id?.endsWith(":JF_EXTERNAL:$index") == true
-					}
-				} else {
-					// The server does not send a reliable index in all cases, so calculate it manually
-					val localIndex = mediaSource.mediaStreams.orEmpty()
-						.filter { it.type == MediaStreamType.SUBTITLE }
-						.filter { it.deliveryMethod == SubtitleDeliveryMethod.EMBED || it.deliveryMethod == SubtitleDeliveryMethod.HLS }
-						.indexOf(stream)
-						.takeIf { it != -1 }
-
-					if (localIndex == null) {
-						Timber.w("Failed to find local subtitle index")
-						return setSubtitleIndex(-1)
-					}
-
-					mVideoManager.mExoPlayer.currentTracks.groups
-						.filter { it.type == C.TRACK_TYPE_TEXT }
-						.filterNot { it.length == 1 && it.getTrackFormat(0).id?.endsWith(":JF_EXTERNAL:$index") == true }
-						.getOrNull(localIndex)
-				}?.mediaTrackGroup
-
-				if (group == null) {
-					Timber.w("Failed to find correct subtitle group for method ${stream.deliveryMethod}")
-					return setSubtitleIndex(-1)
-				}
-
-				Timber.i("Enabling subtitle group $index via method ${stream.deliveryMethod}")
 				mCurrentOptions.subtitleStreamIndex = index
-				with(mVideoManager.mExoPlayer.trackSelector!!) {
-					parameters = parameters.buildUpon()
-						.clearOverridesOfType(C.TRACK_TYPE_TEXT)
-						.addOverride(TrackSelectionOverride(group, 0))
-						.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-						.build()
-				}
 			}
 
 			stream.deliveryMethod == SubtitleDeliveryMethod.DROP || stream.deliveryMethod == null -> {

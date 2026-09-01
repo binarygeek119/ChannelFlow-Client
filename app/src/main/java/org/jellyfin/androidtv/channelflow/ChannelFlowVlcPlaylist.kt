@@ -7,6 +7,16 @@ import java.util.UUID
 object ChannelFlowVlcPlaylist {
 	const val USER_AGENT = "ChannelFlow-TV"
 
+	/** Jitter buffer before playback starts. Keep short so live channel changes are not delayed. */
+	const val START_CACHING_MS = 1_500
+
+	/**
+	 * Keep reading from the server after the jitter buffer is full, up to ~10 minutes of media
+	 * at 8 Mbps (600 MiB). ChannelFlow fans out a shared encoder; pausing the HTTP socket drops packets.
+	 */
+	const val PREFETCH_BUFFER_KIB = 600 * 1_024
+	const val PREFETCH_READ_SIZE = 262_144
+
 	fun text(
 		streamUrl: String,
 		name: String = "ChannelFlow",
@@ -29,8 +39,10 @@ object ChannelFlowVlcPlaylist {
 			appendLine("#EXTM3U")
 			appendLine(extinf)
 			appendLine("#EXTVLCOPT:http-user-agent=$USER_AGENT")
-			appendLine("#EXTVLCOPT:network-caching=1500")
-			appendLine("#EXTVLCOPT:live-caching=1500")
+			appendLine("#EXTVLCOPT:network-caching=$START_CACHING_MS")
+			appendLine("#EXTVLCOPT:live-caching=$START_CACHING_MS")
+			appendLine("#EXTVLCOPT:prefetch-buffer-size=$PREFETCH_BUFFER_KIB")
+			appendLine("#EXTVLCOPT:prefetch-read-size=$PREFETCH_READ_SIZE")
 			appendLine("#EXTVLCOPT:http-reconnect=true")
 			if (!apiKey.isNullOrBlank()) appendLine("#EXTVLCOPT:http-header=X-Api-Key: $apiKey")
 			appendLine(playUrl)

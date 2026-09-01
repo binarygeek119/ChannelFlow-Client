@@ -217,16 +217,5 @@ fun SettingsPlaybackAdvancedScreen() {
 				modifier = Modifier.focusKey("ac3_enabled")
 			)
 		}
-
-		item {
-			var preferExoPlayerFfmpeg by rememberPreference(userPreferences, UserPreferences.preferExoPlayerFfmpeg)
-			ListButton(
-				headingContent = { Text(stringResource(R.string.prefer_exoplayer_ffmpeg)) },
-				trailingContent = { Checkbox(checked = preferExoPlayerFfmpeg) },
-				captionContent = { Text(stringResource(R.string.prefer_exoplayer_ffmpeg_content)) },
-				onClick = { preferExoPlayerFfmpeg = !preferExoPlayerFfmpeg },
-				modifier = Modifier.focusKey("prefer_exoplayer_ffmpeg")
-			)
-		}
 	}
 }

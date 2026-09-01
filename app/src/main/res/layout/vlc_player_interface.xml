@@ -25,17 +25,10 @@
 
         </FrameLayout>
 
-        <androidx.media3.ui.PlayerView
-            android:id="@+id/exoPlayerView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            app:use_controller="false" />
-
         <org.videolan.libvlc.util.VLCVideoLayout
             android:id="@+id/vlc_video_layout"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone" />
+            android:layout_height="match_parent" />
 
         <androidx.fragment.app.FragmentContainerView
             android:id="@+id/leanback_fragment"
