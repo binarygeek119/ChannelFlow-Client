@@ -31,6 +31,7 @@ import java.util.zip.GZIPInputStream
 class ChannelFlowGuideRepository(
 	private val store: ChannelFlowConnectionStore,
 	private val liveTvPreferences: LiveTvPreferences,
+	private val access: Lazy<ChannelFlowAccessGuard>,
 ) {
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 	private val mutex = Mutex()
@@ -298,6 +299,10 @@ class ChannelFlowGuideRepository(
 			.get()
 			.build()
 		http.newCall(request).execute().use { response ->
+			if (response.code == 401 || response.code == 403) {
+				access.value.forgetUnauthorized(connection)
+				error("HTTP ${response.code} unauthorized for ${redact(url)}")
+			}
 			if (!response.isSuccessful) error("HTTP ${response.code} for ${redact(url)}")
 			val bytes = response.body?.bytes() ?: ByteArray(0)
 			decodeBody(bytes)

@@ -3,6 +3,7 @@ package org.jellyfin.androidtv.di
 import android.content.Context
 import androidx.startup.Initializer
 import org.jellyfin.androidtv.LogInitializer
+import org.jellyfin.androidtv.channelflow.ChannelFlowClientSession
 import org.jellyfin.androidtv.channelflow.ChannelFlowLogShipper
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.KoinApplication
@@ -23,6 +24,7 @@ class KoinInitializer : Initializer<KoinApplication> {
 			)
 		}
 		koin.koin.get<ChannelFlowLogShipper>().start()
+		koin.koin.get<ChannelFlowClientSession>().start()
 		return koin
 	}
 

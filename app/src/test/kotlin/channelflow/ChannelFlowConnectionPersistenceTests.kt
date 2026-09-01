@@ -48,6 +48,15 @@ class ChannelFlowConnectionPersistenceTests : FunSpec({
 		decoded.connection shouldBe connection
 	}
 
+	test("recovers an API key left on the M3U URL") {
+		val encoded = """
+			{"connection":{"baseUrl":"http://10.0.0.8:8096","m3uUrl":"http://10.0.0.8:8096/iptv/channels.m3u?apiKey=secret-key","epgUrl":"http://10.0.0.8:8096/iptv/epg.xml","apiKey":""},"favoriteChannelIds":[]}
+		""".trimIndent()
+
+		val decoded = ChannelFlowConnectionPersistence.decode(encoded).shouldNotBeNull()
+		decoded.connection?.apiKey shouldBe "secret-key"
+	}
+
 	test("does not treat corrupt json as an empty server list") {
 		ChannelFlowConnectionPersistence.decode("{not-json") shouldBe null
 		ChannelFlowConnectionPersistence.decode("") shouldBe null

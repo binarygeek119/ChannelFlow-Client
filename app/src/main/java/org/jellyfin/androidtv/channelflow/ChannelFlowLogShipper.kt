@@ -1,9 +1,6 @@
 package org.jellyfin.androidtv.channelflow
 
 import android.content.Context
-import android.os.Build
-import android.provider.Settings
-import androidx.core.content.edit
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -25,15 +22,14 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.jellyfin.androidtv.BuildConfig
 import timber.log.Timber
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class ChannelFlowLogShipper(
 	context: Context,
 	private val store: ChannelFlowConnectionStore,
+	private val access: ChannelFlowAccessGuard,
 ) {
 	private val app = context.applicationContext
-	private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 	private val queueLock = Any()
 	private val queue = ArrayDeque<ChannelFlowLogEntry>()
@@ -119,10 +115,10 @@ class ChannelFlowLogShipper(
 	private suspend fun post(connection: ChannelFlowConnection, batch: List<ChannelFlowLogEntry>): Boolean =
 		withContext(Dispatchers.IO) {
 			val payload = ChannelFlowLogBatch(
-				deviceId = deviceId(),
-				deviceName = deviceName(),
-				appVersion = BuildConfig.VERSION_NAME,
-				osVersion = osVersion(),
+				deviceId = ChannelFlowDevice.id(app),
+				deviceName = ChannelFlowDevice.name(app),
+				appVersion = ChannelFlowDevice.appVersion(),
+				osVersion = ChannelFlowDevice.osVersion(),
 				entries = batch,
 			)
 			val body = json.encodeToString(ChannelFlowLogBatch.serializer(), payload)
@@ -139,39 +135,14 @@ class ChannelFlowLogShipper(
 					response.isSuccessful -> true
 					response.code == 401 || response.code == 403 -> {
 						dropUntilReconnect = true
-						false
+						access.forgetUnauthorized(connection)
+						true
 					}
 					response.code in 400..499 -> true
 					else -> false
 				}
 			}
 		}
-
-	private fun deviceId(): String {
-		val androidId = ChannelFlowClientLogs.sanitizeDeviceId(
-			Settings.Secure.getString(app.contentResolver, Settings.Secure.ANDROID_ID)
-		)
-		if (!androidId.isNullOrBlank()) return androidId
-		val stored = ChannelFlowClientLogs.sanitizeDeviceId(prefs.getString(KEY_DEVICE_ID, null))
-		if (!stored.isNullOrBlank()) return stored
-		val generated = UUID.randomUUID().toString()
-		prefs.edit { putString(KEY_DEVICE_ID, generated) }
-		return generated
-	}
-
-	private fun deviceName(): String {
-		val named = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
-			Settings.Global.getString(app.contentResolver, Settings.Global.DEVICE_NAME)
-		} else {
-			null
-		}
-		return ChannelFlowClientLogs.sanitizeText(named, 80)
-			?: ChannelFlowClientLogs.sanitizeText(Build.MODEL, 80)
-			?: "Android TV"
-	}
-
-	private fun osVersion(): String =
-		"Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
 
 	private fun wrapUncaughtExceptions() {
 		val previous = Thread.getDefaultUncaughtExceptionHandler()
@@ -200,8 +171,6 @@ class ChannelFlowLogShipper(
 
 	companion object {
 		const val TAG = "ChannelFlowLogShipper"
-		private const val PREFS = "channelflow_client_logs"
-		private const val KEY_DEVICE_ID = "device_id"
 		private const val FLUSH_INTERVAL_MS = 4_000L
 		private val JSON = "application/json; charset=utf-8".toMediaType()
 		private val USER_AGENT =

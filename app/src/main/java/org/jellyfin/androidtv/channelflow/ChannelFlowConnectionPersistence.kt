@@ -53,9 +53,9 @@ internal object ChannelFlowConnectionPersistence {
 			}
 			val active = nextServers.firstOrNull { it.id == nextActiveId } ?: nextServers.firstOrNull()
 			return ChannelFlowServersState(
-				servers = nextServers,
+				servers = nextServers.map { it.copy(connection = it.connection.withResolvedApiKey()) },
 				activeServerId = active?.id,
-				connection = active?.connection,
+				connection = active?.connection?.withResolvedApiKey(),
 				favoriteChannelIds = favoriteChannelIds,
 			)
 		}

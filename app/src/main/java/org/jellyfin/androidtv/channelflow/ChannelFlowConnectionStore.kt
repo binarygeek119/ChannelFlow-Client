@@ -76,6 +76,16 @@ class ChannelFlowConnectionStore(
 		)
 	}
 
+	fun removeByApiKey(apiKey: String): Boolean {
+		if (apiKey.isBlank()) return false
+		val ids = _state.value.servers
+			.filter { it.connection.apiKey == apiKey }
+			.map { it.id }
+		if (ids.isEmpty()) return false
+		ids.forEach { remove(it) }
+		return true
+	}
+
 	fun clearConnection() {
 		commit(
 			_state.value.copy(
