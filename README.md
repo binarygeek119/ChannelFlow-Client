@@ -7,13 +7,13 @@
 <img alt="ChannelFlow TV" src="logo.png" width="220"/>
 <br/><br/>
 <a href="LICENSE">
-<img alt="GPL 2.0 License" src="https://img.shields.io/github/license/binarygeek119/ChannelFlow-Client.svg"/>
+<img alt="GPL 2.0 License" src="https://img.shields.io/github/license/binarygeek119/ChannelFlow-TV-Client.svg"/>
 </a>
-<a href="https://github.com/binarygeek119/ChannelFlow-Client/releases">
-<img alt="Current Release" src="https://img.shields.io/github/v/release/binarygeek119/ChannelFlow-Client.svg"/>
+<a href="https://github.com/binarygeek119/ChannelFlow-TV-Client/releases">
+<img alt="Current Release" src="https://img.shields.io/github/v/release/binarygeek119/ChannelFlow-TV-Client.svg"/>
 </a>
 <br/>
-<a href="https://github.com/binarygeek119/ChannelFlow-Client/releases">Download the latest APK</a>
+<a href="https://github.com/binarygeek119/ChannelFlow-TV-Client/releases">Download the latest APK</a>
 <br/><br/>
 <strong>Downloader code: <code>6869959</code></strong>
 </p>
@@ -34,7 +34,7 @@ On Fire TV or Android TV, install [Downloader](https://www.aftvnews.com/download
 
 That code fetches the ChannelFlow TV APK. After it downloads, install it and allow unknown sources if the TV asks.
 
-You can also download `ChannelFlow-TV-v*-release.apk` from [GitHub Releases](https://github.com/binarygeek119/ChannelFlow-Client/releases).
+You can also download `ChannelFlow-TV-v*-release.apk` from [GitHub Releases](https://github.com/binarygeek119/ChannelFlow-TV-Client/releases).
 
 ## Features
 

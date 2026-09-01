@@ -174,7 +174,7 @@ class ChannelFlowLogShipper(
 		private const val FLUSH_INTERVAL_MS = 4_000L
 		private val JSON = "application/json; charset=utf-8".toMediaType()
 		private val USER_AGENT =
-			"ChannelFlow-TV/${BuildConfig.VERSION_NAME} (+https://github.com/binarygeek119/ChannelFlow-Client)"
+			"ChannelFlow-TV/${BuildConfig.VERSION_NAME} (+https://github.com/binarygeek119/ChannelFlow-TV-Client)"
 	}
 }
 

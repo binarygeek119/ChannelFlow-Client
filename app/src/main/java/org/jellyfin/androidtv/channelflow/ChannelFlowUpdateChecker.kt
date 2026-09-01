@@ -324,7 +324,7 @@ class ChannelFlowUpdateChecker(
 	}
 
 	companion object {
-		const val GITHUB_REPO = "binarygeek119/ChannelFlow-Client"
+		const val GITHUB_REPO = "binarygeek119/ChannelFlow-TV-Client"
 		const val RELEASES_PAGE = "https://github.com/$GITHUB_REPO/releases"
 		const val ACTION_INSTALL_STATUS = "org.jellyfin.androidtv.channelflow.INSTALL_STATUS"
 		const val EXTRA_VERSION = "version"
