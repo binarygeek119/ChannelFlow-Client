@@ -47,6 +47,8 @@ class M3uParserTests : FunSpec({
 		playlist.contains("#EXTVLCOPT:http-user-agent=ChannelFlow-TV") shouldBe true
 		playlist.contains("#EXTVLCOPT:network-caching=${ChannelFlowVlcPlaylist.START_CACHING_MS}") shouldBe true
 		playlist.contains("#EXTVLCOPT:prefetch-buffer-size=${ChannelFlowVlcPlaylist.PREFETCH_BUFFER_KIB}") shouldBe true
+		playlist.contains("#EXTVLCOPT:http-reconnect=true") shouldBe true
+		playlist.contains("#EXTVLCOPT:ts-cc-check=0") shouldBe true
 		playlist.contains("#EXTVLCOPT:http-header=X-Api-Key: secret") shouldBe true
 		ChannelFlowVlcPlaylist.PREFETCH_BUFFER_KIB shouldBe 600 * 1024
 		playlist.contains("https://server/iptv/stream/11111111222233334444555555555555?apiKey=secret") shouldBe true

@@ -44,6 +44,7 @@ object ChannelFlowVlcPlaylist {
 			appendLine("#EXTVLCOPT:prefetch-buffer-size=$PREFETCH_BUFFER_KIB")
 			appendLine("#EXTVLCOPT:prefetch-read-size=$PREFETCH_READ_SIZE")
 			appendLine("#EXTVLCOPT:http-reconnect=true")
+			appendLine("#EXTVLCOPT:ts-cc-check=0")
 			if (!apiKey.isNullOrBlank()) appendLine("#EXTVLCOPT:http-header=X-Api-Key: $apiKey")
 			appendLine(playUrl)
 		}

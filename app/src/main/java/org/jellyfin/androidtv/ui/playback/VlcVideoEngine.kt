@@ -2,7 +2,11 @@ package org.jellyfin.androidtv.ui.playback
 
 import android.app.Activity
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.view.View
+import org.jellyfin.androidtv.channelflow.ChannelFlowLiveReconnect
 import org.jellyfin.androidtv.channelflow.ChannelFlowStream
 import org.jellyfin.androidtv.channelflow.ChannelFlowVlcPlaylist
 import org.jellyfin.androidtv.preference.constant.ZoomMode
@@ -22,6 +26,7 @@ class VlcVideoEngine(
 ) {
 	private val libVlc: LibVLC
 	private val player: MediaPlayer
+	private val handler = Handler(Looper.getMainLooper())
 	private var notifier: PlaybackControllerNotifiable? = null
 	private var attached = false
 	private var liveStream = false
@@ -29,6 +34,16 @@ class VlcVideoEngine(
 	private var lastUrl: String? = null
 	private var lastApiKey: String? = null
 	private var retriedSoft = false
+	private var released = false
+	private var userStopped = false
+	private var userPaused = false
+	private var reconnectScheduled = false
+	private var reconnectAttempt = 0
+	private var suppressStopUntil = 0L
+	private var lastTimeChangedAt = 0L
+	private var lastRestartAt = 0L
+	private var lastReadBytes: Int? = null
+	private var lastReadBytesAt = 0L
 
 	init {
 		val options = arrayListOf(
@@ -37,6 +52,7 @@ class VlcVideoEngine(
 			"--prefetch-buffer-size=${ChannelFlowVlcPlaylist.PREFETCH_BUFFER_KIB}",
 			"--prefetch-read-size=${ChannelFlowVlcPlaylist.PREFETCH_READ_SIZE}",
 			"--http-reconnect",
+			"--no-ts-cc-check",
 			"--http-user-agent=${ChannelFlowVlcPlaylist.USER_AGENT}",
 			"--aout=opensles",
 			"--audio-time-stretch",
@@ -100,6 +116,13 @@ class VlcVideoEngine(
 		lastUrl = url
 		lastApiKey = apiKey
 		retriedSoft = false
+		userStopped = false
+		userPaused = false
+		reconnectAttempt = 0
+		cancelReconnect()
+		lastReadBytes = null
+		lastRestartAt = SystemClock.elapsedRealtime()
+		lastTimeChangedAt = lastRestartAt
 		attachIfNeeded()
 		val playlist = ChannelFlowVlcPlaylist.write(
 			file = File(File(activity.cacheDir, "vlc"), "channel.m3u"),
@@ -116,28 +139,45 @@ class VlcVideoEngine(
 		player.media = media
 		media.release()
 		Timber.i("VLC playing M3U live=%s url=%s", live, ChannelFlowStream.redact(playUrl))
+		if (live) startWatchdog()
 	}
 
 	fun start() {
+		userStopped = false
+		userPaused = false
+		lastRestartAt = SystemClock.elapsedRealtime()
+		lastTimeChangedAt = lastRestartAt
 		attachIfNeeded()
 		player.play()
+		if (liveStream) startWatchdog()
 	}
 
 	fun play() {
+		userPaused = false
+		userStopped = false
+		lastRestartAt = SystemClock.elapsedRealtime()
+		lastTimeChangedAt = lastRestartAt
 		player.play()
+		if (liveStream) startWatchdog()
 	}
 
 	fun pause() {
+		userPaused = true
+		cancelReconnect()
 		player.pause()
 	}
 
 	fun stop() {
+		userStopped = true
+		cancelReconnect()
 		runCatching { player.stop() }
 		helper.setScreensaverLock(false)
 	}
 
 	fun release() {
+		released = true
 		notifier = null
+		cancelReconnect()
 		stop()
 		if (attached) {
 			runCatching { player.detachViews() }
@@ -184,6 +224,7 @@ class VlcVideoEngine(
 		media.addOption(":prefetch-buffer-size=${ChannelFlowVlcPlaylist.PREFETCH_BUFFER_KIB}")
 		media.addOption(":prefetch-read-size=${ChannelFlowVlcPlaylist.PREFETCH_READ_SIZE}")
 		media.addOption(":http-reconnect")
+		media.addOption(":ts-cc-check=0")
 		media.addOption(":http-user-agent=${ChannelFlowVlcPlaylist.USER_AGENT}")
 		val apiKey = lastApiKey
 		if (!apiKey.isNullOrBlank()) media.addOption(":http-header=X-Api-Key: $apiKey")
@@ -208,23 +249,35 @@ class VlcVideoEngine(
 	private fun onEvent(event: MediaPlayer.Event) {
 		when (event.type) {
 			MediaPlayer.Event.Playing -> {
+				reconnectAttempt = 0
+				retriedSoft = false
+				reconnectScheduled = false
+				lastTimeChangedAt = SystemClock.elapsedRealtime()
+				lastReadBytes = null
 				notifier?.onPrepared()
 				helper.setScreensaverLock(true)
 			}
-			MediaPlayer.Event.Paused, MediaPlayer.Event.Stopped -> {
+			MediaPlayer.Event.Paused -> {
 				helper.setScreensaverLock(false)
+			}
+			MediaPlayer.Event.Stopped -> {
+				helper.setScreensaverLock(false)
+				if (SystemClock.elapsedRealtime() < suppressStopUntil) return
+				scheduleReconnect("stopped")
 			}
 			MediaPlayer.Event.EndReached -> {
 				if (liveStream) {
-					Timber.w("VLC live stream ended; restarting")
-					restart(preferHardware = true)
+					scheduleReconnect("ended")
 				} else {
 					notifier?.onCompletion()
 				}
 			}
 			MediaPlayer.Event.EncounteredError -> {
-				val url = lastUrl
-				if (!retriedSoft && url != null) {
+				if (liveStream) {
+					val preferHardware = retriedSoft || reconnectAttempt < 2
+					if (!preferHardware) retriedSoft = true
+					scheduleReconnect("error", preferHardware)
+				} else if (!retriedSoft && lastUrl != null) {
 					retriedSoft = true
 					Timber.w("VLC playback error; retrying stream without hardware decode")
 					restart(preferHardware = false)
@@ -234,17 +287,86 @@ class VlcVideoEngine(
 				}
 			}
 			MediaPlayer.Event.TimeChanged -> {
+				lastTimeChangedAt = SystemClock.elapsedRealtime()
 				notifier?.onProgress()
 			}
 		}
 	}
 
+	private fun scheduleReconnect(reason: String, preferHardware: Boolean = true) {
+		if (!ChannelFlowLiveReconnect.shouldReconnect(liveStream, userStopped, userPaused, reconnectScheduled)) return
+		if (released) return
+		reconnectScheduled = true
+		val attempt = reconnectAttempt
+		reconnectAttempt++
+		val delay = ChannelFlowLiveReconnect.delayMs(attempt)
+		Timber.w("VLC live stream %s; reconnecting in %sms (attempt %s)", reason, delay, reconnectAttempt)
+		handler.postDelayed({
+			if (released || userStopped || userPaused) {
+				reconnectScheduled = false
+				return@postDelayed
+			}
+			restart(preferHardware)
+		}, delay)
+	}
+
 	private fun restart(preferHardware: Boolean) {
-		val url = lastUrl ?: return
+		val url = lastUrl ?: run {
+			reconnectScheduled = false
+			return
+		}
+		suppressStopUntil = SystemClock.elapsedRealtime() + ChannelFlowLiveReconnect.SUPPRESS_STOP_MS
+		lastRestartAt = SystemClock.elapsedRealtime()
+		lastTimeChangedAt = lastRestartAt
+		lastReadBytes = null
 		val playUrl = ChannelFlowVlcPlaylist.withApiKey(url, lastApiKey)
+		runCatching { player.stop() }
 		val media = mediaFromUrl(playUrl, preferHardware)
 		player.media = media
 		media.release()
 		player.play()
+		reconnectScheduled = false
+		Timber.i("VLC reopened live stream url=%s hw=%s", ChannelFlowStream.redact(playUrl), preferHardware)
+	}
+
+	private fun startWatchdog() {
+		handler.removeCallbacks(watchdog)
+		handler.postDelayed(watchdog, ChannelFlowLiveReconnect.WATCHDOG_MS)
+	}
+
+	private fun cancelReconnect() {
+		reconnectScheduled = false
+		handler.removeCallbacksAndMessages(null)
+	}
+
+	private val watchdog = object : Runnable {
+		override fun run() {
+			if (released || !liveStream || userStopped || userPaused) return
+			val now = SystemClock.elapsedRealtime()
+			if (!reconnectScheduled) {
+				when {
+					ChannelFlowLiveReconnect.inputStalled(lastReadBytes, readBytes(), now - lastReadBytesAt) ->
+						scheduleReconnect("server buffer idle")
+					player.isPlaying && now - lastTimeChangedAt >= ChannelFlowLiveReconnect.STALL_MS ->
+						scheduleReconnect("decoder stall")
+					!player.isPlaying && lastRestartAt > 0 && now - lastRestartAt >= ChannelFlowLiveReconnect.OPEN_TIMEOUT_MS ->
+						scheduleReconnect("open timeout")
+				}
+			}
+			noteReadBytes()
+			if (!released && liveStream && !userStopped) {
+				handler.postDelayed(this, ChannelFlowLiveReconnect.WATCHDOG_MS)
+			}
+		}
+	}
+
+	private fun readBytes(): Int? = runCatching { player.media?.stats?.readBytes }.getOrNull()
+
+	private fun noteReadBytes() {
+		val bytes = readBytes() ?: return
+		if (lastReadBytes != bytes) {
+			lastReadBytes = bytes
+			lastReadBytesAt = SystemClock.elapsedRealtime()
+		}
 	}
 }
